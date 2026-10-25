@@ -1,0 +1,82 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <h1>App updates</h1>
+      <p class="text-body-secondary">
+        Installed apps that have a newer version, as winget sees them. Update them one at a time.
+      </p>
+    </div>
+    <div class="page-actions">
+      <button type="button" class="btn btn-primary" [disabled]="loading() || updatingId() !== null" (click)="load()">
+        @if (loading()) {
+          <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Checking...
+        } @else {
+          Check again
+        }
+      </button>
+    </div>
+  </header>
+
+  @if (error(); as e) {
+    <div class="alert alert-danger" role="alert">{{ e }}</div>
+  }
+
+  <div class="panel">
+    @if (loading() && !items().length) {
+      <div class="empty"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Asking winget what is out of date...</div>
+    } @else if (!items().length && !error()) {
+      <div class="empty">Everything winget manages is up to date. Apps winget does not recognise are not listed.</div>
+    } @else if (items().length) {
+      <table class="table data-table" [class.refreshing]="loading()">
+        <thead>
+          <tr>
+            <th scope="col">App</th>
+            <th scope="col">Installed</th>
+            <th scope="col">Available</th>
+            <th scope="col">Source</th>
+            <th class="actions" scope="col"><span class="visually-hidden">Update</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (u of items(); track u.id) {
+            <tr>
+              <td>
+                <div class="name-cell">
+                  <span class="avatar" aria-hidden="true" [style.--h]="hue(u.name)">{{ u.name.charAt(0).toUpperCase() }}</span>
+                  <span class="min-w-0">
+                    {{ u.name }}
+                    @if (u.explicit) {
+                      <span class="chip" title="winget lists this app but only updates it when asked by name">Held back</span>
+                    }
+                    @if (updatingId() === u.id) {
+                      <span class="chip">Updating...</span>
+                    }
+                    <span class="sub d-block">{{ u.id }}</span>
+                  </span>
+                </div>
+              </td>
+              <td class="text-nowrap">{{ u.version }}</td>
+              <td class="text-nowrap"><strong>{{ u.available }}</strong></td>
+              <td>{{ u.source ?? '-' }}</td>
+              <td class="actions">
+                @if (canUpdate(u)) {
+                  <button type="button" class="btn btn-quiet btn-sm" [attr.aria-label]="'Update ' + u.name" [disabled]="updatingId() !== null || loading()" (click)="update(u)">Update</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+
+  @if (checkedAt(); as t) {
+    <p class="text-body-secondary mt-3 mb-0">
+      {{ items().length }} update{{ items().length === 1 ? '' : 's' }} found, checked at {{ timeOf(t) }}.
+      @if (heldBack()) {
+        {{ heldBack() }} held back by winget.
+      }
+      An "Update all" button is not offered: each update changes a program, so it is one at a time.
+    </p>
+  }
+</div>

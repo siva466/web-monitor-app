@@ -1,0 +1,171 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <h1>Drivers</h1>
+      <p class="text-body-secondary">
+        What is installed, and whether Windows Update has newer ones. A driver is installed only if you press Install on one that Windows Update lists.
+        @if (data(); as d) {
+          {{ d.drivers.length }} drivers, {{ thirdPartyCount() }} from vendors other than Microsoft.
+        }
+      </p>
+    </div>
+    <div class="page-actions">
+      <button type="button" class="btn btn-primary" [disabled]="checking()" (click)="checkUpdates()">
+        @if (checking()) {
+          <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Checking...
+        } @else {
+          Check Windows Update
+        }
+      </button>
+      <button type="button" class="icon-btn" title="Refresh the list" aria-label="Refresh the list" [disabled]="loading()" (click)="load()"><app-icon name="refresh" /></button>
+    </div>
+  </header>
+
+  @if (error(); as e) {
+    <div class="alert alert-danger" role="alert">{{ e }}</div>
+  }
+
+  <section class="panel panel-body mb-3">
+    <h2 class="panel-title"><app-icon name="refresh" />Windows Update driver check</h2>
+    @if (checking()) {
+      <p class="mb-0 text-body-secondary"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Asking Windows Update. This takes about 10 to 20 seconds.</p>
+    } @else if (scanError(); as se) {
+      <div class="alert alert-danger mb-0" role="alert">{{ se }}</div>
+    } @else if (scan(); as s) {
+      @if (s.updates.length === 0) {
+        <p class="mb-0">No driver updates found. Checked at {{ timeOf(s.checkedAt) }}.</p>
+      } @else {
+        <p>{{ s.updates.length }} driver update{{ s.updates.length === 1 ? '' : 's' }} available, checked at {{ timeOf(s.checkedAt) }}.</p>
+        <table class="table data-table mb-3">
+          <thead>
+            <tr><th scope="col">Update</th><th scope="col">Maker</th><th scope="col">Driver date</th><th scope="col" class="num">Size</th><th scope="col" class="actions"><span class="visually-hidden">Install</span></th></tr>
+          </thead>
+          <tbody>
+            @for (u of s.updates; track u.title) {
+              <tr>
+                <td>{{ u.title }}<span class="sub d-block">{{ u.cls }}</span></td>
+                <td>{{ u.manufacturer ?? '-' }}</td>
+                <td class="text-nowrap">{{ u.date ?? '-' }}</td>
+                <td class="num text-nowrap">{{ fmt(u.sizeBytes) }}</td>
+                <td class="actions">
+                  @if (u.id) {
+                    <button type="button" class="btn btn-quiet btn-sm" [attr.aria-label]="'Install ' + u.title" [disabled]="installingId() !== null || checking()" (click)="install(u)">
+                      @if (installingId() === u.id) {
+                        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Installing...
+                      } @else {
+                        Install
+                      }
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <button type="button" class="btn btn-quiet" (click)="open('optional-updates')">Or open Windows' Optional updates</button>
+      }
+    } @else {
+      <p class="mb-0 text-body-secondary">Not checked yet. The check only looks; it downloads and installs nothing until you press Install on an update.</p>
+    }
+  </section>
+
+  @if (displays().length) {
+    <section class="panel panel-body mb-3">
+      <h2 class="panel-title"><app-icon name="gpu" />Graphics</h2>
+      @for (g of displays(); track g.name) {
+        <div class="gpu-row">
+          <div>
+            <strong>{{ g.name }}</strong>
+            <div class="text-body-secondary">
+              Driver {{ g.friendlyVersion ?? g.version ?? '-' }}
+              @if (g.friendlyVersion) {
+                (Windows version {{ g.version }})
+              }
+              from {{ g.date ?? 'an unknown date' }}
+            </div>
+          </div>
+          @if (vendorOf(g); as v) {
+            <button type="button" class="btn btn-quiet" (click)="open(v.key)">{{ v.label }}</button>
+          } @else if (g.microsoft) {
+            <span class="text-body-secondary">Windows' basic display driver is in use. Install the maker's driver.</span>
+          }
+        </div>
+      }
+      <p class="text-body-secondary mt-2 mb-0">This app does not know which graphics driver is newest. The maker's page shows that.</p>
+    </section>
+  }
+
+  @if (data()?.problems?.length) {
+    <section class="panel panel-body mb-3">
+      <h2 class="panel-title"><app-icon name="alert" />Devices with problems</h2>
+      @for (p of data()!.problems; track p.name) {
+        <div class="problem-row">
+          <strong>{{ p.name }}</strong>
+          <span class="text-body-secondary">{{ p.cause }} (code {{ p.code }}).</span>
+          @if (hints[p.code]) {
+            <span class="text-body-secondary">{{ hints[p.code] }}</span>
+          }
+        </div>
+      }
+    </section>
+  }
+
+  <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
+    <h2 class="h5 mb-0 me-auto">Installed drivers</h2>
+    <label class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" role="switch" [checked]="showMicrosoft()" (change)="onToggleMicrosoft($event)" />
+      <span class="form-check-label">Microsoft drivers</span>
+    </label>
+    <label class="search">
+      <app-icon name="search" />
+      <input class="form-control" type="search" placeholder="Search drivers" aria-label="Search drivers" [value]="query()" (input)="onSearch($event)" />
+    </label>
+  </div>
+
+  <div class="panel">
+    @if (loading()) {
+      <div class="empty"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Reading drivers...</div>
+    } @else {
+      <table class="table data-table">
+        <thead>
+          <tr>
+            @for (c of columns; track c.key) {
+              <th scope="col" [attr.aria-sort]="ariaSort(c.key)">
+                <button type="button" (click)="sort(c.key)">
+                  {{ c.label }}
+                  @if (sortKey() === c.key) {
+                    <span aria-hidden="true">{{ sortDir() === 1 ? '▲' : '▼' }}</span>
+                  }
+                </button>
+              </th>
+            }
+            <th scope="col"><span class="visually-hidden">Flags</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (d of rows(); track $index) {
+            <tr>
+              <td>
+                {{ d.name }}
+                <span class="sub d-block">{{ d.cls ?? '' }}</span>
+              </td>
+              <td [class.text-body-secondary]="!d.provider">{{ d.provider ?? 'Unknown' }}</td>
+              <td class="text-nowrap">{{ d.version ?? '-' }}</td>
+              <td class="text-nowrap">{{ d.date ?? '-' }}</td>
+              <td class="text-nowrap actions">
+                @if (d.signed === false) {
+                  <span class="chip chip-warn" title="Windows could not confirm who made this driver">Unsigned</span>
+                }
+                @if (d.old) {
+                  <span class="chip" title="Older than 3 years. Often fine, but worth a look if the device misbehaves.">3+ years old</span>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5" class="empty">No drivers match.</td></tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>

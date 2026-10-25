@@ -1,0 +1,503 @@
+@use "bootstrap/scss/bootstrap";
+
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --radius: 12px;
+  --bs-body-font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --bs-body-font-size: 0.875rem;
+}
+
+// Both themes redefine the same tokens, so components only use var(--token).
+[data-bs-theme="light"] {
+  --bs-body-bg: #f4f5f8;
+  --bs-body-color: #1a2030;
+  --bs-secondary-color: #5d6679;
+  --bs-border-color: #e1e4eb;
+  --bs-primary: #2f5fe0;
+  --bs-primary-rgb: 47, 95, 224;
+  --surface: #ffffff;
+  --surface-2: #eef0f5;
+  --accent: #2f5fe0;
+  --accent-ink: #2449b8;
+  --accent-soft: #e6ecfd;
+  --danger: #c62d3d;
+  --danger-soft: #fdecee;
+  --ok: #1a8f3c;
+  --viz-cpu: #2a78d6;
+  --viz-ram: #eb6834;
+}
+
+[data-bs-theme="dark"] {
+  --bs-body-bg: #0e1117;
+  --bs-body-color: #e7eaf0;
+  --bs-secondary-color: #9aa3b4;
+  --bs-border-color: #262c38;
+  --bs-primary: #5b8cff;
+  --bs-primary-rgb: 91, 140, 255;
+  --surface: #161b24;
+  --surface-2: #1f2633;
+  --accent: #5b8cff;
+  --accent-ink: #9bb8ff;
+  --accent-soft: #1b2a4f;
+  --danger: #ff7a85;
+  --danger-soft: #3a1c22;
+  --ok: #4cc275;
+  --viz-cpu: #3987e5;
+  --viz-ram: #d95926;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  overflow: hidden; // the app shell scrolls inside <main>
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bs-border-color) transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+}
+
+// Page layout
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+
+  // A long description wraps instead of pushing the buttons onto a second row.
+  > div:first-child {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 34rem;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    margin: 0.2rem 0 0;
+  }
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+// Surfaces
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--radius);
+  overflow: clip; // keeps rounded corners without breaking sticky table headers
+}
+
+.panel-body {
+  padding: 1rem 1.15rem;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+}
+
+.stat {
+  padding: 1rem 1.15rem;
+}
+
+.stat-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--bs-secondary-color);
+}
+
+.stat-value {
+  margin: 0.35rem 0 0.1rem;
+  font-size: 2rem;
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.stat-sub {
+  min-height: 1.3em;
+}
+
+// Controls
+
+.btn {
+  --bs-btn-border-radius: 8px;
+  --bs-btn-font-weight: 500;
+  --bs-btn-padding-y: 0.4rem;
+  transition: transform 160ms var(--ease-out), background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+.btn-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--accent);
+  --bs-btn-border-color: var(--accent);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--accent-ink);
+  --bs-btn-hover-border-color: var(--accent-ink);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--accent-ink);
+  --bs-btn-active-border-color: var(--accent-ink);
+}
+
+.btn-danger {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: #c62d3d;
+  --bs-btn-border-color: #c62d3d;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #a92433;
+  --bs-btn-hover-border-color: #a92433;
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #a92433;
+  --bs-btn-active-border-color: #a92433;
+}
+
+.btn-quiet {
+  --bs-btn-color: var(--bs-body-color);
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: var(--bs-border-color);
+  --bs-btn-hover-color: var(--bs-body-color);
+  --bs-btn-hover-bg: var(--surface-2);
+  --bs-btn-hover-border-color: var(--bs-border-color);
+  --bs-btn-active-color: var(--bs-body-color);
+  --bs-btn-active-bg: var(--surface-2);
+  --bs-btn-active-border-color: var(--bs-border-color);
+}
+
+.btn-end {
+  --bs-btn-padding-y: 0.25rem;
+  --bs-btn-padding-x: 0.65rem;
+  --bs-btn-font-size: 0.8rem;
+  --bs-btn-color: var(--danger);
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: var(--bs-border-color);
+  --bs-btn-hover-color: var(--danger);
+  --bs-btn-hover-bg: var(--danger-soft);
+  --bs-btn-hover-border-color: var(--danger);
+  --bs-btn-active-color: var(--danger);
+  --bs-btn-active-bg: var(--danger-soft);
+  --bs-btn-active-border-color: var(--danger);
+}
+
+.icon-btn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--bs-secondary-color);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  transition: background-color 150ms ease, color 150ms ease, transform 160ms var(--ease-out);
+
+  &:active {
+    transform: scale(0.94);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .icon-btn:hover {
+    color: var(--bs-body-color);
+    background: var(--surface-2);
+  }
+}
+
+.form-control,
+.form-select {
+  background-color: var(--surface);
+  border-color: var(--bs-border-color);
+  border-radius: 8px;
+}
+
+.form-check-input:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.form-check-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 0.2rem var(--accent-soft);
+}
+
+.search {
+  position: relative;
+  color: var(--bs-secondary-color);
+
+  .icon {
+    position: absolute;
+    top: 50%;
+    left: 0.7rem;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  input {
+    width: 17rem;
+    padding-left: 2.2rem;
+  }
+}
+
+// Tables
+
+.data-table {
+  --bs-table-bg: transparent;
+  width: 100%;
+  margin: 0;
+
+  th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+    background: var(--surface);
+    border-bottom: 1px solid var(--bs-border-color);
+
+    button {
+      padding: 0;
+      font: inherit;
+      color: inherit;
+      letter-spacing: inherit;
+      text-transform: inherit;
+      background: none;
+      border: 0;
+    }
+  }
+
+  td {
+    padding: 0.5rem 0.9rem;
+    vertical-align: middle;
+    border-color: var(--bs-border-color);
+    font-variant-numeric: tabular-nums;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .num {
+    text-align: right;
+  }
+
+  .actions {
+    width: 1%;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  // Row actions appear on hover or keyboard focus; always visible on touch.
+  .row-action {
+    opacity: 1;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .data-table {
+    tbody tr:hover {
+      background: var(--surface-2);
+    }
+
+    .row-action {
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+
+    tbody tr:hover .row-action,
+    tbody tr:focus-within .row-action {
+      opacity: 1;
+    }
+  }
+}
+
+.name-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+
+  .sub {
+    display: block;
+    max-width: 28rem;
+    overflow: hidden;
+    font-size: 0.78rem;
+    color: var(--bs-secondary-color);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: #fff;
+  background: hsl(var(--h, 220) 45% 35%);
+  border-radius: 8px;
+}
+
+.min-w-0 {
+  min-width: 0;
+}
+
+.sub {
+  font-size: 0.78rem;
+  color: var(--bs-secondary-color);
+}
+
+.chip {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--bs-secondary-color);
+  background: var(--surface-2);
+  border-radius: 99px;
+}
+
+.chip-warn {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.chip-ok {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+}
+
+// A name that selects its row. Looks like text, behaves like a button.
+.pick {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.data-table tbody tr.selected {
+  background: var(--accent-soft);
+}
+
+.table.refreshing {
+  opacity: 0.55;
+  transition: opacity 150ms ease;
+}
+
+.note {
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.details {
+  position: sticky;
+  top: 0;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 1rem;
+  margin: 0 0 0.75rem;
+
+  dt {
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+  }
+
+  dd {
+    margin: 0;
+  }
+}
+
+.gpu-row,
+.problem-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  padding: 0.5rem 0;
+}
+
+.gpu-row {
+  justify-content: space-between;
+}
+
+.problem-row {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.empty {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--bs-secondary-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,12 @@
+Name                       Id                         Version                 Match
+------------------------------------------------------------------------------------------
+VLC media player           VideoLAN.VLC               3.0.24                  Moniker: vlc
+pympress                   Cimbali.pympress           1.8.6                   Tag: vlc
+Jellyfin VLC Bridge        CrySer66.JellyfinVlcBridge 1.18.0                  Tag: vlc
+Screenbox                  Starpine.Screenbox         0.23.0                  Tag: vlc
+Streamlink                 Streamlink.Streamlink      8.6.2-2                 Tag: vlc
+wcap                       mmozeiko.wcap              2025.11.27              Tag: vlc
+SubRenamer                 qwqcode.SubRenamer         2.4.0                   Tag: vlc
+tuna                       univrsal.tuna              1.9.11                  Tag: vlc
+VLC media player (Nightly) VideoLAN.VLC.Nightly       4.0.0.0-nightly20260509 
+Darshan Player             UjjwalDadhich.Darshan      1.2.0                   Tag: libvlc

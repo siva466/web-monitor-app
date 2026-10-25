@@ -1,0 +1,85 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <h1>Blocked by Windows</h1>
+      <p class="text-body-secondary">
+        Why a "part of this app has been blocked" notice appeared, in plain words. This page only explains what Windows recorded; it never unblocks anything or changes Smart App Control.
+      </p>
+    </div>
+    <div class="page-actions">
+      <button type="button" class="btn btn-primary" [disabled]="loading()" (click)="load()">
+        @if (loading()) {
+          <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Reading...
+        } @else {
+          Refresh
+        }
+      </button>
+    </div>
+  </header>
+
+  @if (error(); as e) {
+    <div class="alert alert-danger" role="alert">{{ e }}</div>
+  }
+
+  @if (data(); as d) {
+    <section class="panel panel-body mb-3">
+      <h2 class="panel-title"><app-icon name="shield" />Smart App Control</h2>
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <span class="chip" [class.chip-ok]="d.sac.state === 'on'" [class.chip-warn]="d.sac.state === 'evaluation'">{{ d.sac.label }}</span>
+        <span class="me-auto">{{ d.sac.text }}</span>
+        <button type="button" class="btn btn-quiet btn-sm" (click)="openSecurity()">Open Windows Security</button>
+      </div>
+    </section>
+
+    <div class="panel">
+      @if (!d.rows.length) {
+        <div class="empty">Windows has not recorded any blocked file in this log.</div>
+      } @else {
+        <table class="table data-table" [class.refreshing]="loading()">
+          <thead>
+            <tr>
+              <th scope="col" style="width: 34%">Blocked file</th>
+              <th scope="col" style="width: 18%">Tried by</th>
+              <th scope="col" style="width: 36%">Why</th>
+              <th scope="col" class="num" style="width: 12%">Times</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of d.rows; track r.file + '|' + r.process) {
+              <tr>
+                <td class="text-break">
+                  <strong>{{ r.fileName ?? r.file }}</strong>
+                  <span class="chip ms-2" [class.chip-warn]="r.kind === 'policy'">{{ kindLabel(r) }}</span>
+                  <span class="sub d-block">{{ r.file }}</span>
+                  @if (whatItIs(r)) {
+                    <span class="sub d-block">{{ whatItIs(r) }}@if (r.signature === 'valid') { · signature valid } @else if (r.signature === 'unsigned') { · not signed } @else if (r.signature) { · signature not valid }</span>
+                  }
+                  @if (r.exists === false) {
+                    <span class="sub d-block">The file is not there any more.</span>
+                  }
+                </td>
+                <td class="text-break">
+                  {{ r.processName ?? '-' }}
+                  @if (r.process) {
+                    <span class="sub d-block">{{ r.process }}</span>
+                  }
+                </td>
+                <td>{{ r.reason }}</td>
+                <td class="num text-nowrap">
+                  {{ r.count }}
+                  <span class="sub d-block">last {{ when(r.last) }}</span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+
+    <p class="text-body-secondary mt-3 mb-0">
+      {{ d.eventCount }} block record{{ d.eventCount === 1 ? '' : 's' }}.@if (d.oldest) { Windows' log goes back to {{ when(d.oldest) }}; }  this is all it kept, so older blocks are not listed. This page cannot tell which notification you saw; compare the time on the notification with "last". A notice that shows an odd or missing program name may belong to the program listed under "Tried by".
+    </p>
+  } @else if (loading()) {
+    <div class="panel"><div class="empty"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Reading what Windows recorded...</div></div>
+  }
+</div>

@@ -1,0 +1,59 @@
+.group-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.15rem 0.5rem;
+}
+
+.group-label {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.sub {
+  overflow: hidden;
+  font-size: 0.78rem;
+  color: var(--bs-secondary-color);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-size {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.25;
+}
+
+.group-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  padding: 0 1.15rem 0.9rem 2.9rem;
+  font-size: 0.82rem;
+
+  &:empty {
+    padding-bottom: 0.4rem;
+  }
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+}
+
+.chevron .icon {
+  transition: transform 180ms var(--ease-out);
+}
+
+.chevron.open .icon {
+  transform: rotate(180deg);
+}
+
+table {
+  border-top: 1px solid var(--bs-border-color);
+}

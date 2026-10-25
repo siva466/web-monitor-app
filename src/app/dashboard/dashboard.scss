@@ -1,0 +1,84 @@
+.chart {
+  position: relative;
+}
+
+svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.grid {
+  stroke: var(--bs-border-color);
+  stroke-width: 1px;
+}
+
+.tick {
+  fill: var(--bs-secondary-color);
+  font-size: 11px;
+}
+
+.line {
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+
+  &.cpu { stroke: var(--viz-cpu); }
+  &.ram { stroke: var(--viz-ram); }
+}
+
+.dot {
+  stroke: var(--surface);
+  stroke-width: 2px;
+
+  &.cpu { fill: var(--viz-cpu); }
+  &.ram { fill: var(--viz-ram); }
+}
+
+.crosshair {
+  stroke: var(--bs-secondary-color);
+  stroke-width: 1px;
+  opacity: 0.5;
+}
+
+.line-key {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  margin-right: 6px;
+  vertical-align: middle;
+
+  &.cpu { background: var(--viz-cpu); }
+  &.ram { background: var(--viz-ram); }
+}
+
+.legend {
+  color: var(--bs-secondary-color);
+}
+
+.tip {
+  position: absolute;
+  top: 8px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  pointer-events: none;
+  background: var(--surface);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.14);
+  transform: translateX(12px);
+
+  &.flip { transform: translateX(calc(-100% - 12px)); }
+}
+
+.progress {
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 99px;
+}
+
+.progress-bar {
+  border-radius: 99px;
+}

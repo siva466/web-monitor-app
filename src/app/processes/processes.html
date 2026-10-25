@@ -1,0 +1,76 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <h1>Processes</h1>
+      <p class="text-body-secondary">Programs running now. Updates every 5 seconds.</p>
+    </div>
+    <div class="page-actions">
+      <label class="form-check form-switch mb-0 me-2">
+        <input class="form-check-input" type="checkbox" role="switch" [checked]="showSystem()" (change)="onToggleSystem($event)" />
+        <span class="form-check-label">Windows processes</span>
+      </label>
+      <label class="search">
+        <app-icon name="search" />
+        <input class="form-control" type="search" placeholder="Search programs" aria-label="Search processes" [value]="query()" (input)="onSearch($event)" />
+      </label>
+      <button type="button" class="icon-btn" title="Refresh now" aria-label="Refresh now" (click)="refresh()"><app-icon name="refresh" /></button>
+    </div>
+  </header>
+
+  @if (error(); as e) {
+    <div class="alert alert-danger" role="alert">{{ e }}</div>
+  }
+
+  <div class="panel">
+    @if (loading()) {
+      <div class="empty"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Reading running programs...</div>
+    } @else {
+      <table class="table data-table">
+        <thead>
+          <tr>
+            @for (c of columns; track c.key) {
+              <th scope="col" [class.num]="c.num" [attr.aria-sort]="ariaSort(c.key)">
+                <button type="button" (click)="sort(c.key)">
+                  {{ c.label }}
+                  @if (sortKey() === c.key) {
+                    <span aria-hidden="true">{{ sortDir() === 1 ? '▲' : '▼' }}</span>
+                  }
+                </button>
+              </th>
+            }
+            <th class="actions" scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (g of rows(); track g.name) {
+            <tr>
+              <td>
+                <div class="name-cell">
+                  <span class="avatar" aria-hidden="true" [style.--h]="hue(g.name)">{{ g.name.charAt(0).toUpperCase() }}</span>
+                  <span class="min-w-0">
+                    {{ g.name }}
+                    @if (g.title) {
+                      <span class="sub">{{ g.title }}</span>
+                    }
+                  </span>
+                </div>
+              </td>
+              <td class="num">{{ g.pids.length }}</td>
+              <td class="num">{{ g.cpu == null ? '-' : (g.cpu | number: '1.1-1') + '%' }}</td>
+              <td class="num text-nowrap">{{ fmt(g.memBytes) }}</td>
+              <td class="actions">
+                @if (g.protected) {
+                  <span class="text-body-secondary" title="Windows needs this process" aria-label="Protected Windows process"><app-icon name="lock" /></span>
+                } @else {
+                  <button type="button" class="btn btn-end row-action" [attr.aria-label]="'End ' + g.name" (click)="end(g)">End task</button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5" class="empty">No programs match your search.</td></tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>

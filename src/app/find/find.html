@@ -1,0 +1,116 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <h1>Find apps</h1>
+      <p class="text-body-secondary">
+        Search winget's community catalogue, read the license, then install. Windows may ask for permission.
+      </p>
+    </div>
+  </header>
+
+  <form class="d-flex gap-2 mb-3" (submit)="$event.preventDefault(); search()">
+    <label class="search flex-grow-1">
+      <app-icon name="search" />
+      <input class="form-control w-100" type="search" placeholder="App name, for example vlc" aria-label="Search for an app" [value]="query()" (input)="onInput($event)" />
+    </label>
+    <button type="submit" class="btn btn-primary" [disabled]="searching() || !query().trim()">
+      @if (searching()) {
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Searching...
+      } @else {
+        Search
+      }
+    </button>
+  </form>
+
+  @if (error(); as e) {
+    <div class="alert alert-danger" role="alert">{{ e }}</div>
+  }
+
+  @if (results(); as list) {
+    <div class="row g-3">
+      <div class="col-lg-7">
+        <div class="panel">
+          @if (!list.length) {
+            <div class="empty">No apps found. Try a shorter or different name.</div>
+          } @else {
+            @if (list.length >= 40) {
+              <div class="note text-body-secondary">Showing the first 40 matches. Type more of the name to narrow the search.</div>
+            }
+            <table class="table data-table">
+              <thead>
+                <tr><th scope="col">App</th><th scope="col">Version</th></tr>
+              </thead>
+              <tbody>
+                @for (h of list; track h.id) {
+                  <tr [class.selected]="selectedId() === h.id">
+                    <td>
+                      <div class="name-cell">
+                        <span class="avatar" aria-hidden="true" [style.--h]="hue(h.name)">{{ h.name.charAt(0).toUpperCase() }}</span>
+                        <span class="min-w-0">
+                          <button type="button" class="pick" [attr.aria-pressed]="selectedId() === h.id" (click)="select(h)">{{ h.name }}</button>
+                          <span class="sub d-block">{{ h.id }}@if (h.match) { · {{ h.match }} }</span>
+                        </span>
+                      </div>
+                    </td>
+                    <td class="text-nowrap">{{ h.version ?? '-' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      </div>
+
+      <div class="col-lg-5">
+        <section class="panel panel-body details" aria-live="polite">
+          @if (loadingDetails()) {
+            <p class="mb-0 text-body-secondary"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading details...</p>
+          } @else if (detailsError(); as de) {
+            <div class="alert alert-danger mb-0" role="alert">{{ de }}</div>
+          } @else if (details(); as d) {
+            <div class="d-flex align-items-start gap-3">
+              <div class="min-w-0 me-auto">
+                <h2 class="h5 mb-1">{{ d.name }}</h2>
+                <div class="text-body-secondary mb-2 text-break">{{ d.id }}{{ d.version ? ' · version ' + d.version : '' }}</div>
+              </div>
+              <button type="button" class="btn btn-primary" [disabled]="installing()" (click)="install(d)">
+                @if (installing()) {
+                  <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Installing...
+                } @else {
+                  Install
+                }
+              </button>
+            </div>
+            <dl class="facts">
+              @if (d.publisher) {
+                <dt>Publisher</dt>
+                <dd>{{ d.publisher }}</dd>
+              }
+              <dt>License</dt>
+              <dd>
+                {{ d.license ?? 'Not stated' }}
+                <span class="chip" [class.chip-ok]="d.hint.kind === 'free'" [class.chip-warn]="d.hint.kind === 'paid'">{{ d.hint.label }}</span>
+              </dd>
+              @if (d.installerType) {
+                <dt>Installer</dt>
+                <dd>{{ d.installerType }}</dd>
+              }
+              @if (d.homepage) {
+                <dt>Website</dt>
+                <dd class="text-break">{{ d.homepage }}</dd>
+              }
+            </dl>
+            @if (d.description) {
+              <p class="mb-2">{{ d.description }}</p>
+            }
+            <p class="text-body-secondary mb-0">The license note is a hint from the license text, not a promise about price. Check the website before installing anything.</p>
+          } @else {
+            <p class="mb-0 text-body-secondary">Select an app to see who makes it and what license it uses.</p>
+          }
+        </section>
+      </div>
+    </div>
+  } @else if (!error() && !searching()) {
+    <div class="panel"><div class="empty">Type an app name and press Search. Results come from winget's community catalogue only.</div></div>
+  }
+</div>

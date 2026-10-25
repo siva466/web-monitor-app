@@ -1,0 +1,128 @@
+.shell {
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 232px;
+  padding: 18px 12px 14px;
+  background: var(--surface);
+  border-right: 1px solid var(--bs-border-color);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 4px 8px 20px;
+  font-weight: 650;
+  line-height: 1.15;
+
+  small {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--bs-secondary-color);
+  }
+}
+
+.logo {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 10px;
+}
+
+nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto; // a short window scrolls the list instead of pushing the theme switch off screen
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.55rem 0.7rem;
+    font-weight: 500;
+    color: var(--bs-secondary-color);
+    text-decoration: none;
+    border-radius: 9px;
+    transition: background-color 150ms ease, color 150ms ease, transform 160ms var(--ease-out);
+
+    &:active {
+      transform: scale(0.98);
+    }
+
+    &.active {
+      color: var(--accent-ink);
+      background: var(--accent-soft);
+    }
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  nav a:not(.active):hover {
+    color: var(--bs-body-color);
+    background: var(--surface-2);
+  }
+}
+
+.appearance {
+  padding: 0 4px;
+}
+
+.caption {
+  display: block;
+  margin: 0 4px 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+}
+
+.theme {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-2);
+  border-radius: 10px;
+
+  button {
+    display: grid;
+    flex: 1;
+    place-items: center;
+    height: 30px;
+    color: var(--bs-secondary-color);
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    transition: background-color 150ms ease, color 150ms ease, transform 160ms var(--ease-out);
+
+    &:active {
+      transform: scale(0.96);
+    }
+
+    &[aria-pressed='true'] {
+      color: var(--bs-body-color);
+      background: var(--surface);
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.14);
+    }
+  }
+}
+
+main {
+  flex: 1;
+  min-width: 0;
+  padding: 28px 36px 40px;
+  overflow: auto;
+}

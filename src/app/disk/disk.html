@@ -1,0 +1,351 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <h1>Disk space</h1>
+      <p class="text-body-secondary">Where the space goes. Looking is read-only; anything that deletes asks first and lists exactly what it will do.</p>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Disk space views">
+    @for (t of tabs; track t.id) {
+      <button type="button" role="tab" class="tab" [attr.aria-selected]="tab() === t.id" [class.active]="tab() === t.id" (click)="select(t.id)">{{ t.label }}</button>
+    }
+  </div>
+
+  @switch (tab()) {
+    @case ('folders') {
+      @if (foldersError(); as e) {
+        <div class="alert alert-danger" role="alert">{{ e }}</div>
+      }
+
+      <div class="drive-grid">
+        @for (d of drives(); track d.letter) {
+          <button type="button" class="panel drive" [disabled]="scanning()" [attr.aria-label]="'Look inside drive ' + d.letter + ':'" (click)="begin('drive:' + d.letter)">
+            <span class="drive-name"><app-icon name="disk" />Drive {{ d.letter }}:</span>
+            <span class="progress" role="img" [attr.aria-label]="fmt(d.used) + ' used of ' + fmt(d.size)"><span class="progress-bar bg-primary" [style.width.%]="usedPct(d)"></span></span>
+            <span class="sub">{{ fmt(d.used) }} used of {{ fmt(d.size) }} · {{ fmt(d.free) }} free</span>
+          </button>
+        }
+      </div>
+      <div class="places">
+        <span class="text-body-secondary">Or look inside:</span>
+        @for (p of places(); track p.key) {
+          <button type="button" class="btn btn-quiet btn-sm" [disabled]="scanning()" (click)="begin(p.key)">{{ p.label }}</button>
+        }
+      </div>
+
+      @if (scanning()) {
+        <div class="panel panel-body d-flex align-items-center gap-3">
+          <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          <span>Measuring... a whole drive can take a minute or two.</span>
+          <button type="button" class="btn btn-quiet btn-sm ms-auto" (click)="stop()">Stop</button>
+        </div>
+      } @else if (listing(); as l) {
+        <section class="panel">
+          <div class="panel-body crumbs">
+            @for (c of l.trail; track c.id; let last = $last) {
+              @if (last) {
+                <strong>{{ c.label }}</strong>
+              } @else {
+                <button type="button" class="pick" (click)="goTo(c.id)">{{ c.label }}</button>
+                <span class="text-body-secondary" aria-hidden="true">/</span>
+              }
+            }
+            <span class="ms-auto text-body-secondary">{{ l.partial ? 'At least ' : '' }}{{ fmt(l.total) }}</span>
+          </div>
+
+          @if (l.partial) {
+            <div class="note text-body-secondary">This scan stopped early or ran out of time, so the sizes are a minimum, not the full amount.</div>
+          }
+          @if (l.notCounted !== null) {
+            <div class="note text-body-secondary">
+              Not counted: {{ fmt(l.notCounted) }} of this drive's used space. That is usually system files Windows keeps private (the page file, System Volume Information, protected folders) that this app cannot measure.
+            </div>
+          }
+
+          @if (l.drive && !l.partial && l.total > l.drive.used) {
+            <div class="note text-body-secondary">
+              These sizes add up to {{ fmt(l.total - l.drive.used) }} more than Windows says is used on this drive. Windows shares some files between folders (hard links, mostly under Windows\WinSxS), and every folder that holds one counts it in full.
+            </div>
+          }
+
+          <table class="table data-table mb-0">
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col" class="share-col"><span class="visually-hidden">Share of this folder</span></th>
+                <th scope="col" class="num">Size</th>
+                <th scope="col" class="num">Files</th>
+                <th class="actions" scope="col"><span class="visually-hidden">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of l.rows; track r.name) {
+                <tr>
+                  <td>
+                    <span class="name-cell">
+                      <app-icon [name]="r.kind === 'folder' ? 'folder' : 'software'" />
+                      <span class="min-w-0">
+                        @if (r.kind === 'folder' && r.id) {
+                          <button type="button" class="pick text-break" [attr.aria-label]="'Open folder ' + r.name" (click)="openRow(r)">{{ r.name }}</button>
+                        } @else {
+                          <span class="text-break">{{ r.name }}</span>
+                        }
+                        @if (r.kind === 'link') {
+                          <span class="sub d-block">A link: not followed, so its size is not counted here.</span>
+                        }
+                        @if (r.note) {
+                          <span class="sub d-block">{{ r.note }}</span>
+                        }
+                      </span>
+                    </span>
+                  </td>
+                  <td class="share-col"><span class="progress" aria-hidden="true"><span class="progress-bar bg-primary" [style.width.%]="r.share * 100"></span></span></td>
+                  <td class="num text-nowrap">{{ r.partial ? 'at least ' : '' }}{{ fmt(r.bytes) }}</td>
+                  <td class="num text-nowrap">{{ r.kind === 'folder' ? r.files : '' }}</td>
+                  <td class="actions">
+                    @if (r.id) {
+                      <button type="button" class="btn btn-quiet btn-sm" [attr.aria-label]="'Show ' + r.name + ' in File Explorer'" (click)="show(r)">Show</button>
+                    }
+                  </td>
+                </tr>
+              }
+              @if (l.rest; as rest) {
+                <tr>
+                  <td class="text-body-secondary">{{ rest.count }} smaller item{{ rest.count === 1 ? '' : 's' }} not listed</td>
+                  <td class="share-col"></td>
+                  <td class="num text-nowrap">{{ fmt(rest.bytes) }}</td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              }
+              @if (!l.rows.length) {
+                <tr><td colspan="5" class="text-body-secondary">Nothing was found here, or it could not be read.</td></tr>
+              }
+            </tbody>
+          </table>
+
+          @if (l.denied || l.links) {
+            <div class="note text-body-secondary">
+              @if (l.denied) {
+                <span>{{ l.denied }} folder{{ l.denied === 1 ? '' : 's' }} could not be opened (access denied) and {{ l.denied === 1 ? 'is' : 'are' }} not counted. </span>
+              }
+              @if (l.links) {
+                <span>{{ l.links }} link{{ l.links === 1 ? '' : 's' }} not followed.</span>
+              }
+            </div>
+          }
+        </section>
+        <p class="text-body-secondary mt-3 mb-0">Sizes are what the files hold. Space the drive uses for itself (the file system, shadow copies, restore points) is not in these numbers. Nothing here deletes anything.</p>
+      }
+    }
+
+    @case ('downloads') {
+      <div class="toolbar">
+        <label for="min-size" class="text-body-secondary">Files of at least</label>
+        <select id="min-size" class="form-select form-select-sm w-auto" [disabled]="dlLoading() || dlBusy()" [value]="minMb()" (change)="setMin(+$any($event.target).value)">
+          @for (s of sizes; track s) {
+            <option [value]="s" [selected]="s === minMb()">{{ s >= 1024 ? s / 1024 + ' GB' : s + ' MB' }}</option>
+          }
+        </select>
+        <button type="button" class="icon-btn" title="Scan again" aria-label="Scan again" [disabled]="dlLoading() || dlBusy()" (click)="scanDownloads()"><app-icon name="refresh" /></button>
+      </div>
+
+      @if (dlError(); as e) {
+        <div class="alert alert-danger" role="alert">{{ e }}</div>
+      }
+
+      @if (dlLoading() && !large()) {
+        <div class="panel"><div class="empty"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Looking through Downloads...</div></div>
+      } @else if (large(); as s) {
+        <section class="panel" [class.refreshing]="dlLoading()">
+          @if (!s.files.length) {
+            <div class="empty">No file in Downloads is that big. ({{ s.scanned.files }} files, {{ fmt(s.scanned.bytes) }} in all.)</div>
+          } @else {
+            <table class="table data-table mb-0">
+              <thead>
+                <tr>
+                  <th scope="col"><span class="visually-hidden">Choose</span></th>
+                  <th scope="col">File</th>
+                  <th scope="col" class="num">Size</th>
+                  <th scope="col">Last changed</th>
+                  <th class="actions" scope="col"><span class="visually-hidden">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (f of s.files; track f.id) {
+                  <tr [class.selected]="dlPicked().has(f.id)">
+                    <td class="tick"><input class="form-check-input mt-0" type="checkbox" [id]="'dl-' + f.id" [attr.aria-label]="'Choose ' + f.name" [checked]="dlPicked().has(f.id)" [disabled]="dlBusy() || f.whyNot !== null" (change)="tickFile(f)" /></td>
+                    <td>
+                      <label [for]="'dl-' + f.id" class="d-block">
+                        <span class="text-break">{{ f.name }}</span>
+                        @if (f.folder) {
+                          <span class="sub d-block">in {{ f.folder }}</span>
+                        }
+                        @if (f.whyNot) {
+                          <span class="sub d-block">{{ f.whyNot }}</span>
+                        }
+                      </label>
+                    </td>
+                    <td class="num text-nowrap">{{ fmt(f.bytes) }}</td>
+                    <td class="text-nowrap">{{ ageOf(f.modifiedMs) }}</td>
+                    <td class="actions"><button type="button" class="btn btn-quiet btn-sm" [attr.aria-label]="'Show ' + f.name + ' in File Explorer'" (click)="showFile(f)">Show</button></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            @if (s.matching > s.files.length) {
+              <div class="note text-body-secondary">Showing the biggest {{ s.files.length }} of {{ s.matching }} files ({{ fmt(s.matchingBytes) }} in all).</div>
+            }
+          }
+        </section>
+
+        @if (s.files.length) {
+          <div class="panel panel-body d-flex align-items-center gap-3 mt-3">
+            <span class="text-body-secondary">
+              @if (dlChosen().length) {
+                {{ dlChosen().length }} file{{ dlChosen().length === 1 ? '' : 's' }} chosen, {{ fmt(dlChosenBytes()) }}
+              } @else {
+                Tick the files you want to move.
+              }
+            </span>
+            <button type="button" class="btn btn-primary ms-auto" [disabled]="!dlChosen().length || dlBusy() || dlLoading()" (click)="moveToBin()">
+              @if (dlBusy()) {
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Moving...
+              } @else {
+                Move to Recycle Bin
+              }
+            </button>
+          </div>
+        }
+        <p class="text-body-secondary mt-3 mb-0">Files are moved to the Recycle Bin, never deleted for good, and only if they are unchanged since this scan and the bin has room for all of them. Use Show to look at a file in File Explorer first.</p>
+      }
+    }
+
+    @case ('bin') {
+      <div class="toolbar">
+        <button type="button" class="icon-btn" title="Look again" aria-label="Look again" [disabled]="binLoading() || emptying()" (click)="loadBin()"><app-icon name="refresh" /></button>
+      </div>
+
+      @if (binError(); as e) {
+        <div class="alert alert-danger" role="alert">{{ e }}</div>
+      }
+
+      @if (binLoading() && !bin()) {
+        <div class="panel"><div class="empty"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Measuring the Recycle Bin...</div></div>
+      } @else if (bin(); as b) {
+        <section class="panel" [class.refreshing]="binLoading()">
+          <div class="panel-body d-flex flex-wrap align-items-center gap-3">
+            <div class="me-auto">
+              <strong>{{ b.totals.items }} item{{ b.totals.items === 1 ? '' : 's' }}, {{ fmt(b.totals.bytes) }}</strong>
+              <div class="text-body-secondary">
+                @for (d of b.drives; track d.drive; let last = $last) {
+                  Drive {{ d.drive }}: {{ d.items }} item{{ d.items === 1 ? '' : 's' }}, {{ fmt(d.bytes) }}{{ last ? '' : ' · ' }}
+                } @empty {
+                  Nothing in it.
+                }
+              </div>
+            </div>
+            <button type="button" class="btn btn-danger" [disabled]="!b.totals.items || emptying() || binLoading()" (click)="emptyBin()">
+              @if (emptying()) {
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Emptying...
+              } @else {
+                Empty Recycle Bin...
+              }
+            </button>
+          </div>
+          @if (b.shown.length) {
+            <table class="table data-table mb-0">
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Deleted from</th>
+                  <th scope="col">Deleted</th>
+                  <th scope="col" class="num">Size</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (i of b.shown; track $index) {
+                  <tr>
+                    <td><span class="name-cell"><app-icon [name]="i.isFolder ? 'folder' : 'software'" /><span class="text-break">{{ i.name }}</span></span></td>
+                    <td class="text-break">{{ i.from }}</td>
+                    <td class="text-nowrap">{{ deletedOn(i.deleted) }}</td>
+                    <td class="num text-nowrap">{{ fmt(i.bytes) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            @if (b.hidden) {
+              <div class="note text-body-secondary">Showing the biggest {{ b.shown.length }}; {{ b.hidden }} smaller item{{ b.hidden === 1 ? '' : 's' }} not listed, but counted in the totals.</div>
+            }
+          }
+        </section>
+        <p class="text-body-secondary mt-3 mb-0">Emptying deletes for good and covers every drive. Individual items cannot be restored from here: use the Recycle Bin on the desktop for that.</p>
+      }
+    }
+
+    @case ('caches') {
+      <div class="toolbar">
+        <button type="button" class="icon-btn" title="Look again" aria-label="Look again" [disabled]="cacheLoading() || cacheBusy()" (click)="loadCaches()"><app-icon name="refresh" /></button>
+      </div>
+
+      @if (cacheError(); as e) {
+        <div class="alert alert-danger" role="alert">{{ e }}</div>
+      }
+
+      @if (cacheLoading() && !caches()) {
+        <div class="panel"><div class="empty"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Measuring caches...</div></div>
+      } @else if (caches(); as groups) {
+        @if (!groups.length) {
+          <div class="panel"><div class="empty">No cache was found to clear.</div></div>
+        }
+        @for (cat of cacheCats(); track cat.name) {
+          <h2 class="panel-title mt-3">{{ cat.name }}</h2>
+          @for (g of cat.items; track g.id) {
+            <section class="panel mb-3" [class.refreshing]="cacheLoading()">
+              <div class="group-row">
+                <input class="form-check-input mt-0" type="checkbox" [id]="'cache-' + g.id" [checked]="cachePicked().has(g.id)" [disabled]="g.running || cacheBusy() || g.bytes === 0" (change)="tickCache(g)" />
+                <label class="group-label" [for]="'cache-' + g.id">
+                  <strong>{{ g.name }}</strong>
+                  <span class="sub">{{ g.cost }}</span>
+                </label>
+                <strong>{{ g.partial ? 'at least ' : '' }}{{ fmt(g.bytes) }}</strong>
+              </div>
+              <div class="group-notes text-body-secondary">
+                @if (g.running) {
+                  <span><app-icon name="lock" /> {{ g.name }} is running. Close it, then look again, to clear its cache.</span>
+                }
+                @if (g.note) {
+                  <span>{{ g.note }}</span>
+                }
+                @for (d of g.dirs; track d.label) {
+                  <span>{{ d.label }}: {{ d.partial ? 'at least ' : '' }}{{ fmt(d.bytes) }}</span>
+                }
+              </div>
+            </section>
+          }
+        }
+
+        @if (groups.length) {
+          <div class="panel panel-body d-flex align-items-center gap-3">
+            <span class="text-body-secondary">
+              @if (cacheChosen().length) {
+                {{ fmt(cacheChosenBytes()) }} in {{ cacheChosen().length }} cache{{ cacheChosen().length === 1 ? '' : 's' }} selected
+              } @else {
+                Tick the caches you want to clear.
+              }
+            </span>
+            <button type="button" class="btn btn-danger ms-auto" [disabled]="!cacheChosen().length || cacheBusy() || cacheLoading()" (click)="clearChosen()">
+              @if (cacheBusy()) {
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Clearing...
+              } @else {
+                Clear cache
+              }
+            </button>
+          </div>
+        }
+        <p class="text-body-secondary mt-3 mb-0">Only the cache folders listed for each one are cleared, by fixed rules; cookies, passwords, history, settings and anything you saved are never touched. A cache is deleted for good and rebuilt by its own program. Checked: Chrome, Edge, Brave, Vivaldi, Firefox, NVIDIA and DirectX shader caches, npm, pip, Visual Studio Code, Discord and Steam's web cache. A program that is running cannot be cleared; close it and look again.</p>
+      }
+    }
+  }
+</div>

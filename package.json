@@ -1,0 +1,84 @@
+{
+  "name": "webase-app",
+  "version": "0.0.0",
+  "description": "Windows system monitor and cleaner: see what is running and installed, uninstall apps, update apps and drivers, remove leftovers.",
+  "author": "Webase",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng build --configuration development && electron .",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "test:main": "node --test electron/software.test.js electron/processes.test.js electron/startup.test.js electron/cleanup.test.js electron/drivers.test.js electron/winget.test.js electron/uninstall.test.js electron/leftovers.test.js electron/leftover-delete.test.js electron/driver-install.test.js electron/log.test.js electron/reg-file.test.js electron/backups.test.js electron/blocked.test.js electron/sizes.test.js electron/disk.test.js electron/recyclebin.test.js electron/downloads.test.js electron/caches.test.js",
+    "test:live": "node --test electron/driver-install.live.test.js",
+    "pack": "ng build && electron-builder --win dir",
+    "dist": "ng build && electron-builder --win zip",
+    "dist:installer": "ng build && electron-builder --win nsis"
+  },
+  "private": true,
+  "main": "electron/main.js",
+  "packageManager": "npm@12.2.0",
+  "dependencies": {
+    "systeminformation": "^5.33.16"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.2.2",
+    "@angular/cli": "^22.2.2",
+    "@angular/common": "^22.2.0",
+    "@angular/compiler": "^22.2.0",
+    "@angular/compiler-cli": "^22.2.0",
+    "@angular/core": "^22.2.0",
+    "@angular/forms": "^22.2.0",
+    "@angular/platform-browser": "^22.2.0",
+    "@angular/router": "^22.2.0",
+    "bootstrap": "^5.3.8",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
+    "jsdom": "^30.0.0",
+    "prettier": "^3.8.1",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "typescript": "~6.0.2",
+    "vitest": "^5.0.0"
+  },
+  "build": {
+    "appId": "com.webase.systemmonitor",
+    "productName": "Webase System Monitor",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "!electron/**/*.test.js",
+      "!electron/fixtures/**",
+      "dist/webase-app/browser/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asar": true,
+    "disableAsarIntegrity": true,
+    "win": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "Webase-System-Monitor-${version}-win-x64.${ext}",
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Webase-System-Monitor-Setup-${version}.${ext}"
+    }
+  }
+}

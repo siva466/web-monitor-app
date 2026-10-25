@@ -1,0 +1,213 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <h1>Software</h1>
+      <p class="text-body-secondary">
+        Programs installed on this PC.
+        @if (!loading()) {
+          {{ query() ? rows().length + ' of ' : '' }}{{ apps().length }} apps.
+        }
+      </p>
+    </div>
+    <div class="page-actions">
+      <label class="search">
+        <app-icon name="search" />
+        <input class="form-control" type="search" placeholder="Search name or publisher" aria-label="Search installed software" [value]="query()" (input)="onSearch($event)" />
+      </label>
+      <button type="button" class="btn btn-quiet" [disabled]="busyKey() !== null" (click)="openManual()">Find leftovers</button>
+      <button type="button" class="icon-btn" title="Refresh" aria-label="Refresh list" [disabled]="busyKey() !== null" (click)="load()"><app-icon name="refresh" /></button>
+    </div>
+  </header>
+
+  @if (error(); as e) {
+    <div class="alert alert-danger" role="alert">{{ e }}</div>
+  }
+
+  @if (source(); as s) {
+    <section class="panel panel-body mb-3" aria-live="polite">
+      <div class="d-flex align-items-start gap-3">
+        <div class="me-auto">
+          <strong>{{ s.title }}</strong>
+          <div class="text-body-secondary">
+            @if (s.mode === 'uninstalled') {
+              Uninstallers sometimes leave files or settings behind. Scanning only looks; nothing is removed until you tick items and confirm.
+            } @else {
+              Type the name as it appeared in the list, and the publisher if you know it. Scanning only looks; nothing is removed until you tick items and confirm.
+            }
+          </div>
+        </div>
+        <button type="button" class="icon-btn" title="Close" aria-label="Close" (click)="closePanel()"><app-icon name="x" /></button>
+      </div>
+
+      @if (s.mode === 'manual') {
+        <form class="d-flex flex-wrap gap-2 mt-3" (submit)="$event.preventDefault(); scanLeftovers()">
+          <input class="form-control" style="width: 16rem" placeholder="Program name, for example PuTTY" aria-label="Program name" [value]="manualName()" (input)="onName($event)" />
+          <input class="form-control" style="width: 14rem" placeholder="Publisher (optional)" aria-label="Publisher" [value]="manualPublisher()" (input)="onPublisher($event)" />
+          <button type="submit" class="btn btn-quiet" [disabled]="scanning() || !manualName().trim()">
+            @if (scanning()) {
+              <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Scanning...
+            } @else {
+              Scan for leftovers
+            }
+          </button>
+        </form>
+      } @else {
+        <div class="mt-3">
+          <button type="button" class="btn btn-quiet" [disabled]="scanning()" (click)="scanLeftovers()">
+            @if (scanning()) {
+              <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Scanning...
+            } @else {
+              Scan for leftovers
+            }
+          </button>
+        </div>
+      }
+
+      @if (leftovers(); as l) {
+        <hr />
+        @if (!l.items.length) {
+          <p class="mb-0">Nothing found in the {{ l.placesChecked }} places checked.</p>
+        } @else {
+          <p>{{ l.items.length }} possible leftover{{ l.items.length === 1 ? '' : 's' }} found. Tick what to remove. A "low" match may belong to other apps by the same publisher, so it can only be removed once it is empty.</p>
+          <table class="table data-table mb-2">
+            <thead>
+              <tr>
+                <th scope="col"><span class="visually-hidden">Remove</span></th>
+                <th scope="col">Where</th>
+                <th scope="col">Why it matched</th>
+                <th scope="col">Match</th>
+                <th scope="col" class="num">Size</th>
+                <th scope="col" class="actions"><span class="visually-hidden">Show in folder</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (i of l.items; track i.id) {
+                <tr [class.selected]="picked().has(i.id)">
+                  <td>
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      [checked]="picked().has(i.id)"
+                      [disabled]="!canPick(i) || removing()"
+                      [attr.aria-label]="'Remove ' + i.path"
+                      (change)="togglePick(i)"
+                    />
+                  </td>
+                  <td class="text-break"><span class="text-body-secondary">{{ i.kind === 'registry' ? 'Registry' : i.kind === 'folder' ? 'Folder' : 'File' }}</span> {{ i.path }}</td>
+                  <td>
+                    {{ i.reason }}
+                    @if (!i.removable && i.whyNot) {
+                      <span class="d-block text-body-secondary">{{ i.whyNot }}</span>
+                    } @else if (i.allUsers) {
+                      <span class="d-block text-body-secondary">All-users: Windows will ask for administrator permission.</span>
+                    }
+                  </td>
+                  <td><span class="chip" [class.chip-ok]="i.confidence === 'high'" [class.chip-warn]="i.confidence === 'low'">{{ i.confidence }}</span></td>
+                  <td class="num text-nowrap">{{ i.sizeBytes != null ? fmt(i.sizeBytes) : (i.entries ?? '-') }}</td>
+                  <td class="actions">
+                    @if (i.kind !== 'registry') {
+                      <button type="button" class="icon-btn" title="Show in folder" [attr.aria-label]="'Show ' + i.path + ' in File Explorer'" (click)="reveal(i)"><app-icon name="folder" /></button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <div class="d-flex align-items-center gap-3">
+            <span class="text-body-secondary">{{ pickedItems().length ? pickedItems().length + ' selected' : 'Nothing selected.' }}</span>
+            <button type="button" class="btn btn-danger ms-auto" [disabled]="!pickedItems().length || removing()" (click)="removePicked()">
+              @if (removing()) {
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Removing...
+              } @else {
+                Remove selected
+              }
+            </button>
+          </div>
+        }
+        <p class="text-body-secondary mt-3 mb-0">
+          Looked for the names {{ l.searchedFor.names.join(', ') || 'none' }} and publisher {{ l.searchedFor.publishers.join(' / ') || 'none' }}. In all-users places (Program Files, ProgramData, HKLM) only empty folders and registry keys can be removed, with one Windows permission prompt; anything else there is left to you.
+          @if (l.keptInstalled) {
+            {{ l.keptInstalled }} match{{ l.keptInstalled === 1 ? '' : 'es' }} belong to programs that are still installed and {{ l.keptInstalled === 1 ? 'was' : 'were' }} left out.
+          }
+        </p>
+      }
+
+      @if (lastRemoval(); as lr) {
+        <hr />
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <div class="me-auto text-break">
+            <strong>{{ lr.removed }} removed{{ lr.failed ? ', ' + lr.failed + ' not removed' : '' }}.</strong>
+            @if (lr.backupDir) {
+              <div class="text-body-secondary">Backup: {{ lr.backupDir }}. Double-click a .reg file there to put a registry key back (Windows will ask for permission); files are in the Recycle Bin.</div>
+            }
+            @for (r of lr.results; track r.path) {
+              @if (!r.ok) {
+                <div class="text-body-secondary">Not removed: {{ r.path }}. {{ r.error }}</div>
+              }
+            }
+          </div>
+          @if (lr.backupDir) {
+            <button type="button" class="btn btn-quiet" (click)="openBackups()">Open backup folder</button>
+          }
+        </div>
+      }
+    </section>
+  }
+
+  <div class="panel">
+    @if (loading() && !apps().length) {
+      <div class="empty"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Reading the registry...</div>
+    } @else {
+      <table class="table data-table" [class.refreshing]="loading()">
+        <thead>
+          <tr>
+            @for (c of columns; track c.key) {
+              <th scope="col" [class.num]="c.num" [attr.aria-sort]="ariaSort(c.key)">
+                <button type="button" (click)="sort(c.key)">
+                  {{ c.label }}
+                  @if (sortKey() === c.key) {
+                    <span aria-hidden="true">{{ sortDir() === 1 ? '▲' : '▼' }}</span>
+                  }
+                </button>
+              </th>
+            }
+            <th class="actions" scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (a of rows(); track a.key) {
+            <tr>
+              <td>
+                <div class="name-cell">
+                  <span class="avatar" aria-hidden="true" [style.--h]="hue(a.name)">{{ a.name.charAt(0).toUpperCase() }}</span>
+                  <span>{{ a.name }}</span>
+                  @if (busyKey() === a.key) {
+                    <span class="chip">Uninstalling...</span>
+                  }
+                </div>
+              </td>
+              <td>{{ a.version ?? '-' }}</td>
+              <td>{{ a.publisher ?? '-' }}</td>
+              <td class="num text-nowrap">{{ fmt(a.sizeBytes) }}</td>
+              <td class="text-nowrap">{{ a.installDate ?? '-' }}</td>
+              <td class="actions">
+                @if (a.location) {
+                  <button type="button" class="icon-btn row-action" title="Open install folder" [attr.aria-label]="'Open install folder of ' + a.name" (click)="openFolder(a)">
+                    <app-icon name="folder" />
+                  </button>
+                }
+                @if (a.canUninstall) {
+                  <button type="button" class="icon-btn row-action" title="Uninstall" [attr.aria-label]="'Uninstall ' + a.name" [disabled]="busyKey() !== null" (click)="uninstall(a)">
+                    <app-icon name="trash" />
+                  </button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="6" class="empty">No apps match your search.</td></tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>

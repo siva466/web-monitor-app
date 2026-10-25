@@ -1,0 +1,12 @@
+Name            Id                         Version       Match
+-------------------------------------------------------------------------------
+WeChat          Tencent.WeChat             3.9.12.57     ProductCode: wechat
+WeChat          Tencent.WeChat.Universal   4.1.15.56     
+Fishing Funds   1zilc.FishingFunds         8.8.0         Tag: wechat
+企业微信        Tencent.WeCom              5.0.13.6005   Tag: wechat
+微信开发者工具  Tencent.WeixinDevTools     2.02.2609231  Tag: wechat
+万兴数据管家    Wondershare.WXRecovery     3.5.20.4      Tag: wechat
+MDX Notes       maqibin.MDXNotes           1.0.3         Tag: wechat
+iGot            wahao.Electron-iGot        1.1.1         Tag: wechat
+wewechat        trazyn.weweChat            1.1.7         
+Quanshi Meeting Quanshi.QuanshiMeeting.MSI 6.26.25011501 Tag: WeChat invitation

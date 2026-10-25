@@ -1,0 +1,35 @@
+Found VLC media player [VideoLAN.VLC]
+Version: 3.0.24
+Publisher: VideoLAN
+Publisher Url: https://www.videolan.org/
+Publisher Support Url: https://www.videolan.org/support/
+Author: VideoLAN
+Moniker: vlc
+Description:
+  VLC is a free and open source cross-platform multimedia player and framework
+  that plays most multimedia files as well as DVDs, Audio CDs, VCDs, and various
+  streaming protocols.
+  
+  Simple, fast and powerful
+    Plays everything - Files, Discs, Webcams, Devices and Streams.
+    Plays most codecs with no codec packs needed - MPEG-2, MPEG-4, H.264, MKV, WebM,
+      WMV, MP3...
+    Completely Free - no spyware, no ads and no user tracking.
+Homepage: https://www.videolan.org/vlc/
+License: GPL-2.0
+License Url: https://code.videolan.org/videolan/vlc/-/blob/HEAD/COPYING
+Tags:
+  audio-player
+  audioplayer
+  cross-platform
+  dvd
+  foss
+  media-player
+  multimedia
+  video-player
+Installer:
+  Installer Type: wix
+  Installer Url: https://download.videolan.org/pub/videolan/vlc/3.0.24/win64/vlc-3.0.24-win64.msi
+  Installer SHA256: 22172095ce4c2d5f5b600bb4c142d78105db29a77fa59a931941876f3b20f6d0
+  Release Date: 2026-09-21
+  Offline Distribution Supported: true

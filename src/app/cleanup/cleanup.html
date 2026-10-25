@@ -1,0 +1,116 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <h1>Cleanup</h1>
+      <p class="text-body-secondary">Old temporary files you can remove. Anything changed in the last 7 days is left alone, the same as Windows' own Disk Cleanup.</p>
+    </div>
+    <div class="page-actions">
+      <button type="button" class="icon-btn" title="Scan again" aria-label="Scan again" [disabled]="scanning() || deleting()" (click)="scan()"><app-icon name="refresh" /></button>
+    </div>
+  </header>
+
+  @if (error(); as e) {
+    <div class="alert alert-danger" role="alert">{{ e }}</div>
+  }
+
+  @if (scanning()) {
+    <div class="panel"><div class="empty"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Scanning...</div></div>
+  } @else {
+    @for (g of groups(); track g.id) {
+      <section class="panel mb-3">
+        <div class="group-row">
+          <input
+            class="form-check-input mt-0"
+            type="checkbox"
+            [id]="'pick-' + g.id"
+            [checked]="picked().has(g.id)"
+            [disabled]="g.lockedReason !== null || g.itemCount === 0 || deleting()"
+            (change)="pick(g)"
+          />
+          <label class="group-label" [for]="'pick-' + g.id">
+            <strong>{{ g.label }}</strong>
+            <span class="sub">{{ g.path }}</span>
+          </label>
+          <div class="group-size">
+            <strong>{{ fmt(g.totalBytes) }}</strong>
+            <span class="text-body-secondary">{{ g.itemCount }} item{{ g.itemCount === 1 ? '' : 's' }}</span>
+          </div>
+          <button
+            type="button"
+            class="icon-btn chevron"
+            [class.open]="open().has(g.id) && g.itemCount > 0"
+            [attr.aria-expanded]="open().has(g.id)"
+            [attr.aria-label]="'Show items in ' + g.label"
+            [disabled]="g.itemCount === 0"
+            (click)="toggleOpen(g)"
+          >
+            <app-icon name="chevron" />
+          </button>
+        </div>
+
+        <div class="group-notes text-body-secondary">
+          @if (g.lockedReason === 'admin') {
+            <span><app-icon name="lock" /> Needs administrator rights to clean.</span>
+          }
+          @if (g.lockedReason === 'unsafe') {
+            <span><app-icon name="lock" /> This does not look like a temp folder, so it is not cleaned.</span>
+          }
+          @if (g.keptRecent) {
+            <span>{{ g.keptRecent }} newer item{{ g.keptRecent === 1 ? '' : 's' }} kept.</span>
+          }
+          @if (g.keptLinks) {
+            <span>{{ g.keptLinks }} item{{ g.keptLinks === 1 ? '' : 's' }} with links kept.</span>
+          }
+          @if (g.unreadable) {
+            <span>{{ g.unreadable }} could not be read.</span>
+          }
+          @if (!g.itemCount && !g.lockedReason) {
+            <span>Nothing to clean here.</span>
+          }
+        </div>
+
+        @if (open().has(g.id) && g.topItems.length) {
+          <table class="table data-table">
+            <thead>
+              <tr>
+                <th scope="col">Largest items</th>
+                <th scope="col" class="num">Size</th>
+                <th scope="col">Last changed</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (i of g.topItems; track i.name) {
+                <tr>
+                  <td><span class="name-cell"><app-icon [name]="i.isDir ? 'folder' : 'software'" /><span class="min-w-0 text-truncate">{{ i.name }}</span></span></td>
+                  <td class="num text-nowrap">{{ fmt(i.sizeBytes) }}</td>
+                  <td class="text-nowrap">{{ age(i.modifiedMs) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (g.itemCount > g.topItems.length) {
+            <div class="group-notes text-body-secondary">Showing the largest {{ g.topItems.length }} of {{ g.itemCount }}.</div>
+          }
+        }
+      </section>
+    }
+
+    <div class="panel panel-body d-flex align-items-center gap-3">
+      <span class="text-body-secondary">
+        @if (pickedGroups().length) {
+          {{ fmt(pickedBytes()) }} in {{ pickedItems() }} items selected
+        } @else {
+          Tick what you want to remove.
+        }
+      </span>
+      <button type="button" class="btn btn-danger ms-auto" [disabled]="!pickedGroups().length || deleting()" (click)="remove()">
+        @if (deleting()) {
+          <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Deleting...
+        } @else {
+          Delete selected
+        }
+      </button>
+    </div>
+    <p class="text-body-secondary mt-3 mb-0">Deleted files do not go to the Recycle Bin. Files that are in use are skipped.</p>
+  }
+</div>
