@@ -150,6 +150,17 @@ $out = foreach ($f in $files) {
 ConvertTo-Json -InputObject @($out) -Compress
 `;
 
+// The same log, but only what was recorded since a moment (milliseconds since 1970): used to explain an install or update that just failed.
+const RECENT_SCRIPT = String.raw`
+$ErrorActionPreference = 'SilentlyContinue'
+Add-Type -TypeDefinition 'using System.Text; using System.Runtime.InteropServices; public static class WebaseDos { [DllImport("kernel32.dll", CharSet=CharSet.Unicode)] public static extern uint QueryDosDevice(string d, StringBuilder t, uint n); }'
+$vol = [ordered]@{}
+foreach ($c in [char[]]'CDEFGHIJKLMNOPQRSTUVWXYZ') { $sb = New-Object System.Text.StringBuilder 520; if ([WebaseDos]::QueryDosDevice(('' + $c + ':'), $sb, 520) -gt 0) { $vol[[string]$c] = $sb.ToString() } }
+$since = [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$env:WB_SINCE).LocalDateTime
+$ev = @(Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-CodeIntegrity/Operational'; Id = 3033, 3076, 3077, 3089; StartTime = $since } | ForEach-Object { $_.ToXml() })
+ConvertTo-Json -InputObject ([pscustomobject]@{ volumes = $vol; events = $ev }) -Compress -Depth 4
+`;
+
 const ps = (script, env, timeout) =>
   execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { env: { ...process.env, ...env }, timeout, windowsHide: true, maxBuffer: 64 * 1024 * 1024 });
 const parseJson = (stdout) => JSON.parse(stdout.replace(/^﻿/, '').trim() || 'null');
@@ -192,4 +203,31 @@ async function listBlocked(overrides = {}) {
   };
 }
 
-module.exports = { listBlocked, parseEvent, buildRows, reasonOf, fromDevicePath, levelName, sacState, FETCH_SCRIPT, LOOKUP_SCRIPT, MAX_LOOKUPS };
+// Files Windows' app control (Smart App Control or a policy) blocked since `sinceMs`, newest first. Audit-only records and "this program only
+// loads Microsoft-signed files" refusals are not blocks of an installer and are left out.
+async function recentBlocks(sinceMs, overrides = {}) {
+  const d = { recent: async (s) => parseJson((await ps(RECENT_SCRIPT, { WB_SINCE: String(Math.floor(s)) }, 30000)).stdout), ...overrides };
+  const raw = await d.recent(sinceMs);
+  return buildRows((raw?.events ?? []).map(parseEvent).filter(Boolean), raw?.volumes ?? {}).filter((r) => r.kind === 'policy');
+}
+
+// The sentence for an install or update that failed while Windows was blocking a file (null when nothing was blocked).
+function blockedMessage(rows) {
+  if (!rows?.length) return null;
+  const r = rows[0];
+  const sac = /^VerifiedAndReputable/i.test(r.policy ?? '');
+  const what = rows.length === 1 ? `${r.fileName ?? 'a file'}${r.processName ? ` (loaded by ${r.processName})` : ''}` : `${rows.length} files, the newest ${r.fileName ?? 'a file'}${r.processName ? ` (loaded by ${r.processName})` : ''}`;
+  return `While this ran, ${sac ? 'Smart App Control' : "Windows' app control"} blocked ${what} because Windows cannot confirm who published it. That is probably why it stopped. The program itself may be fine: its installer carries a helper file Windows does not trust. The Blocked page shows the details, and this app never changes Smart App Control. A zip or per-user version from the publisher may not be blocked.`;
+}
+
+// `fallback` is what the install or update said itself; a block that happened while it ran is the better explanation. A failure to read the log
+// never hides the original message.
+async function explainFailure(startedAtMs, fallback, deps = {}) {
+  try {
+    return blockedMessage(await (deps.recentBlocks ?? recentBlocks)(startedAtMs - 3000)) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+module.exports = { listBlocked, recentBlocks, blockedMessage, explainFailure, parseEvent, buildRows, reasonOf, fromDevicePath, levelName, sacState, FETCH_SCRIPT, RECENT_SCRIPT, LOOKUP_SCRIPT, MAX_LOOKUPS };

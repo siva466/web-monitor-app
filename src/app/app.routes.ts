@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 import { Backups } from './backups/backups';
+import { Battery } from './battery/battery';
+import { AppCatalog } from './catalog/catalog';
 import { Blocked } from './blocked/blocked';
 import { Cleanup } from './cleanup/cleanup';
 import { Dashboard } from './dashboard/dashboard';
@@ -15,11 +17,13 @@ export const routes: Routes = [
   { path: '', component: Dashboard },
   { path: 'software', component: Software },
   { path: 'updates', component: Updates },
+  { path: 'catalog', component: AppCatalog },
   { path: 'find', component: Find },
   { path: 'processes', component: Processes },
   { path: 'startup', component: Startup },
   { path: 'cleanup', component: Cleanup },
   { path: 'disk', component: DiskSpace },
+  { path: 'battery', component: Battery },
   { path: 'backups', component: Backups },
   { path: 'drivers', component: Drivers },
   { path: 'blocked', component: Blocked },

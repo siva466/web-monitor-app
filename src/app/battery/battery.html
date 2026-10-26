@@ -1,0 +1,158 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <h1>Battery</h1>
+      <p class="text-body-secondary">How charged it is, how worn it is, and what Windows has recorded. Read-only: nothing here changes a setting.</p>
+    </div>
+    <div class="page-actions">
+      <button type="button" class="btn btn-primary" [disabled]="loading()" (click)="refresh()">
+        @if (loading()) {
+          <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Reading...
+        } @else {
+          Refresh
+        }
+      </button>
+    </div>
+  </header>
+
+  @if (error(); as e) {
+    <div class="alert alert-danger" role="alert">{{ e }}</div>
+  }
+
+  @if (!now() && loading()) {
+    <div class="panel"><div class="empty"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Asking Windows about the battery...</div></div>
+  } @else if (now(); as n) {
+    @if (!n.present) {
+      <div class="panel"><div class="empty">No battery was found. This looks like a desktop PC, so there is nothing to show here.</div></div>
+    } @else {
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <div class="panel stat">
+            <div class="stat-label"><app-icon name="battery" />Charge</div>
+            <div class="stat-value">{{ n.percent != null ? n.percent + '%' : '-' }}</div>
+            <div class="stat-sub text-body-secondary">{{ stateText(n) }}</div>
+            @if (n.state === 'plugged') {
+              <div class="small text-body-secondary mt-1">Battery-care settings, such as the laptop maker's conservation mode, can stop charging early.</div>
+            }
+            @if (n.critical) {
+              <div class="small text-danger mt-1">Windows says the charge is critically low.</div>
+            }
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="panel stat">
+            <div class="stat-label"><app-icon name="check" />Health</div>
+            <div class="stat-value" [class]="'tone-' + tone(n.health)">{{ n.health != null ? n.health + '%' : '-' }}</div>
+            <div class="progress mt-1" role="img" [attr.aria-label]="'Health ' + (n.health ?? 'unknown') + ' percent'"><span class="progress-bar" [class]="'tone-bg-' + tone(n.health)" [style.width.%]="bar(n.health)"></span></div>
+            <div class="stat-sub text-body-secondary mt-1">
+              @if (n.fullMwh != null && n.designMwh != null) {
+                Holds {{ wh(n.fullMwh) }} full, {{ wh(n.designMwh) }} when new
+              } @else if (n.relative) {
+                Capacity is reported in relative units, so only the percentage is shown
+              } @else {
+                The design capacity was not available
+              }
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="panel stat">
+            <div class="stat-label"><app-icon name="refresh" />Charge cycles</div>
+            <div class="stat-value">{{ n.cycles != null ? n.cycles : '-' }}</div>
+            <div class="stat-sub text-body-secondary">Full charges used so far, as the battery counts them</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-lg-6">
+          <section class="panel panel-body h-100">
+            <h2 class="panel-title"><app-icon name="info" />Details</h2>
+            <dl class="facts mb-0">
+              @if (report()?.battery; as b) {
+                @if (b.manufacturer) {
+                  <dt>Made by</dt>
+                  <dd>{{ b.manufacturer }}</dd>
+                }
+                @if (b.chemistry) {
+                  <dt>Type</dt>
+                  <dd>{{ b.chemistry }}</dd>
+                }
+              }
+              <dt>Power now</dt>
+              <dd>{{ n.powerW != null ? (n.powerW > 0 ? 'Charging at ' + n.powerW.toFixed(1) + ' W' : 'Using ' + (-n.powerW).toFixed(1) + ' W') : 'Not reported' }}</dd>
+              <dt>Voltage</dt>
+              <dd>{{ n.voltageV != null ? n.voltageV.toFixed(2) + ' V' : 'Not reported' }}</dd>
+              @if (n.remainingMwh != null) {
+                <dt>Stored now</dt>
+                <dd>{{ wh(n.remainingMwh) }}</dd>
+              }
+              @if (n.count && n.count > 1) {
+                <dt>Batteries</dt>
+                <dd>{{ n.count }} found; only the first is shown</dd>
+              }
+            </dl>
+          </section>
+        </div>
+
+        <div class="col-lg-6">
+          <section class="panel panel-body h-100">
+            <h2 class="panel-title"><app-icon name="clock" />Windows' estimate at a full charge</h2>
+            @if (report()?.runtime; as r) {
+              <p class="mb-0">Active use about {{ minutes(r.fullActiveMin) }}, sleeping with the network on about {{ minutes(r.fullStandbyMin) }}. These are guesses from how this PC was used recently, not measurements.</p>
+            } @else {
+              <p class="mb-0 text-body-secondary">Windows has no estimate to show.</p>
+            }
+          </section>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-12">
+          <section class="panel">
+            <div class="panel-body pb-2">
+              <h2 class="panel-title mb-0"><app-icon name="clock" />History from Windows' battery report</h2>
+            </div>
+            @if (reportError(); as re) {
+              <div class="note text-body-secondary">The history is not available right now: {{ re }}</div>
+            } @else if (report()?.history?.length) {
+              <table class="table data-table mb-0">
+                <thead>
+                  <tr>
+                    <th scope="col">Period</th>
+                    <th scope="col" class="num">Full charge</th>
+                    <th scope="col" class="num">Health</th>
+                    <th scope="col" class="num">Cycles</th>
+                    <th scope="col" class="num">On battery</th>
+                    <th scope="col" class="num">On charger</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (h of report()!.history!; track h.from) {
+                    <tr>
+                      <td class="text-nowrap">{{ period(h) }}</td>
+                      <td class="num text-nowrap">{{ h.fullMwh != null ? wh(h.fullMwh) : '-' }}</td>
+                      <td class="num">{{ h.health != null ? h.health + '%' : '-' }}</td>
+                      <td class="num">{{ h.cycles ?? '-' }}</td>
+                      <td class="num text-nowrap">{{ minutes(h.activeBatteryMin) }}</td>
+                      <td class="num text-nowrap">{{ minutes(h.activeAcMin) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            } @else if (loading()) {
+              <div class="note text-body-secondary">Reading the report...</div>
+            } @else {
+              <div class="note text-body-secondary">Windows has no history to show yet.</div>
+            }
+          </section>
+        </div>
+      </div>
+
+      <p class="text-body-secondary mb-0">
+        Health is the battery's own figure for how much it holds now compared with when it was new, so it can be off. As a rule of thumb, a laptop battery is considered worn below about 80%.
+        The history covers what Windows reports, starting from the earliest period shown; "On battery" and "On the charger" count active use only. Charge and power update every 15 seconds while this page is open; press Refresh to read the report again.
+      </p>
+    }
+  }
+</div>

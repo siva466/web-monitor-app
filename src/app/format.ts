@@ -16,6 +16,16 @@ export function formatUptime(seconds: number): string {
   return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
 }
 
+// 3113 -> "2 d 3 h", 97.5 -> "1 h 38 min", 0.2 -> "0 min"
+export function formatMinutes(min: number | null | undefined): string {
+  if (min == null || !Number.isFinite(min)) return '-';
+  const m = Math.round(min);
+  const d = Math.floor(m / 1440);
+  const h = Math.floor((m % 1440) / 60);
+  if (d) return `${d} d ${h} h`;
+  return h ? `${h} h ${m % 60} min` : `${m} min`;
+}
+
 export function formatAge(ms: number, now = Date.now()): string {
   const days = Math.floor((now - ms) / 86400000);
   if (days < 1) return 'today';

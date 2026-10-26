@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const { parseUpgrades, parseSearch, parseDetails, licenseHint, installMessage, whyNotUpgrade, versionFromList, elevatedUpgradeCommand, needsElevation, QUERY, PACKAGE_ID } = require('./winget');
+const { parseUpgrades, parseSearch, parseDetails, parseInstalled, licenseHint, installMessage, whyNotUpgrade, versionFromList, elevatedUpgradeCommand, elevatedInstallCommand, needsElevatedInstall, needsElevation, QUERY, PACKAGE_ID } = require('./winget');
 
 // Real winget output, saved as-is (public package data).
 const fixture = (name) => fs.readFileSync(path.join(__dirname, 'fixtures', name), 'utf8');
@@ -140,4 +140,38 @@ test('only plain search words and package ids get through to winget', () => {
   for (const bad of ['', ' ', '-x', '--help', 'a;b', 'a|b', 'a&b', '$(x)', 'x'.repeat(70), '..\\x']) assert.ok(!QUERY.test(bad), JSON.stringify(bad));
   for (const ok of ['VideoLAN.VLC', '7zip.7zip', 'Notepad++.Notepad++', 'Git.Git']) assert.ok(PACKAGE_ID.test(ok), ok);
   for (const bad of ['', '-x', 'a b', '..\\x', 'a;b', 'x'.repeat(130)]) assert.ok(!PACKAGE_ID.test(bad), JSON.stringify(bad));
+});
+
+test('install commands: the same id and file checks as upgrades, and only the verb differs', () => {
+  const out = 'C:\\Users\\a\\AppData\\Local\\Temp\\webase-winget-1.txt';
+  assert.equal(elevatedInstallCommand('PuTTY.PuTTY', out), `/c winget.exe install --id PuTTY.PuTTY --exact --source winget --silent --disable-interactivity > "${out}" 2>&1`);
+  for (const bad of ['', '-x', 'a b', 'a&calc', 'a|b', 'a>b', '$(x)', '..\\x', 'a"b']) assert.throws(() => elevatedInstallCommand(bad, out), /valid package id/, JSON.stringify(bad));
+  for (const bad of ['C:\\Temp\\a&b.txt', 'C:\\Temp\\a"b.txt', 'C:\\Temp\\..\\x.txt', 'relative.txt']) assert.throws(() => elevatedInstallCommand('PuTTY.PuTTY', bad), /not safe/, bad);
+});
+
+test('Windows Installer packages install behind one permission prompt; every other installer type does not', () => {
+  for (const t of ['wix', 'msi', 'WIX', 'Msi']) assert.equal(needsElevatedInstall(t), true, t);
+  for (const t of ['exe', 'inno', 'nullsoft', 'burn', 'msix', 'portable', 'portable (zip)', 'zip', 'appx', '', null, undefined, 'wixx', 'wix (zip)']) assert.equal(needsElevatedInstall(t), false, String(t));
+});
+
+test('reads `winget list`: ids with versions, and a newer version when the Available column is there', () => {
+  const withAvailable = [
+    table(['Name', 'Id', 'Version', 'Available', 'Source'], [
+      ['7-Zip 26.05 (x64 edition)', '7zip.7zip', '26.05.00.0', '', 'winget'],
+      ['Android Studio', 'ARP\\Machine\\X64\\Android Studio', '2026.2', '', ''],
+      ['Git', 'Git.Git', '2.50.0', '2.51.0', 'winget'],
+    ]),
+    '',
+  ].join('\n');
+  const a = parseInstalled(withAvailable);
+  assert.deepEqual(a.map((r) => [r.id, r.version, r.available]), [['7zip.7zip', '26.05.00.0', null], ['ARP\\Machine\\X64\\Android Studio', '2026.2', null], ['Git.Git', '2.50.0', '2.51.0']]);
+  const noAvailable = table(['Name', 'Id', 'Version', 'Source'], [
+    ['7-Zip 26.05 (x64 edition)', '7zip.7zip', '26.05.00.0', 'winget'],
+    ['Steam', 'Valve.Steam', '2.10', 'winget'],
+    ['Android Studio', 'ARP\\Machine\\X64\\Android Studio', '2026.2', ''],
+  ]);
+  const b = parseInstalled(noAvailable);
+  assert.deepEqual(b.map((r) => [r.id, r.version, r.available]), [['7zip.7zip', '26.05.00.0', null], ['Valve.Steam', '2.10', null], ['ARP\\Machine\\X64\\Android Studio', '2026.2', null]]);
+  assert.deepEqual(parseInstalled(''), []);
+  assert.deepEqual(parseInstalled('No installed package found matching input criteria.'), []);
 });

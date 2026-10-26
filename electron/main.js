@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, nativeTheme, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } = require('electron');
 const fs = require('fs/promises');
 const path = require('path');
 const { getOverview, getLive } = require('./system');
@@ -9,6 +9,8 @@ const { scanCleanup, deleteCleanup } = require('./cleanup');
 const { listDrivers, scanDriverUpdates, LINKS } = require('./drivers');
 const { listAppUpdates, searchApps, appDetails, installApp, upgradeApp } = require('./winget');
 const { uninstallApp, getSnapshot } = require('./uninstall');
+const { listCatalog, installFromCatalog, exportSelection, importSelection } = require('./catalog');
+const { getBattery, batteryReport } = require('./battery');
 const { scanLeftovers, manualSnapshot, stillInstalled, defaultRoots } = require('./leftovers');
 const { removeLeftovers, assessItem, backupRoot } = require('./leftover-delete');
 const { installDriverUpdate } = require('./driver-install');
@@ -59,6 +61,16 @@ ipcMain.handle('apps:details', (_e, id) => appDetails(id));
 ipcMain.handle('apps:install', (_e, id) => installApp(id));
 ipcMain.handle('apps:upgrade', (_e, id) => upgradeApp(id));
 ipcMain.handle('sw:uninstall', (_e, key) => uninstallApp(key));
+// App catalog: a fixed list of ids (catalog-data.js). The window names ids only; the list file is chosen in a system dialog and never leaves main.
+const askFile = (open, options) => {
+  const win = BrowserWindow.getFocusedWindow();
+  return (open ? (win ? dialog.showOpenDialog(win, options) : dialog.showOpenDialog(options)) : win ? dialog.showSaveDialog(win, options) : dialog.showSaveDialog(options));
+};
+const JSON_FILTER = [{ name: 'App list (JSON)', extensions: ['json'] }];
+ipcMain.handle('cat:list', () => listCatalog());
+ipcMain.handle('cat:install', (_e, id) => installFromCatalog(id));
+ipcMain.handle('cat:export', (_e, ids) => exportSelection(ids, { showSave: async (name) => { const r = await askFile(false, { title: 'Save app list', defaultPath: name, filters: JSON_FILTER }); return r.canceled ? null : r.filePath; } }));
+ipcMain.handle('cat:import', () => importSelection({ showOpen: async () => { const r = await askFile(true, { title: 'Open app list', properties: ['openFile'], filters: JSON_FILTER }); return r.canceled ? null : r.filePaths[0]; } }));
 // Only the latest scan can be acted on: removal names items by the ids it gave out.
 let lastScan = null;
 async function scan(snapshot) {
@@ -137,6 +149,8 @@ ipcMain.handle('bin:list', () => listBin());
 ipcMain.handle('bin:empty', () => withLock(() => emptyBin()));
 ipcMain.handle('cache:scan', async () => (await discoverCaches()).map((g) => ({ ...g, dirs: g.dirs.map(({ label, bytes, partial }) => ({ label, bytes, partial })) }))); // labels only, no paths
 ipcMain.handle('cache:clear', (_e, ids) => withLock(() => clearCaches(ids)));
+ipcMain.handle('bat:now', () => getBattery()); // read-only: numbers and words only, no battery id or serial number
+ipcMain.handle('bat:report', () => batteryReport());
 ipcMain.handle('drv:list', listDrivers);
 // Only an update the latest scan listed can be installed: the window names it by id, and the revision comes from this list.
 let driverUpdates = new Map();

@@ -3,11 +3,11 @@
     <div>
       <h1>App updates</h1>
       <p class="text-body-secondary">
-        Installed apps that have a newer version, as winget sees them. Update them one at a time.
+        Installed apps that have a newer version, as winget sees them. Update one, or tick several and update them one after another.
       </p>
     </div>
     <div class="page-actions">
-      <button type="button" class="btn btn-primary" [disabled]="loading() || updatingId() !== null" (click)="load()">
+      <button type="button" class="btn btn-primary" [disabled]="loading() || busy()" (click)="load()">
         @if (loading()) {
           <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Checking...
         } @else {
@@ -21,6 +21,25 @@
     <div class="alert alert-danger" role="alert">{{ e }}</div>
   }
 
+  @if (batch(); as b) {
+    <div class="panel panel-body d-flex align-items-center gap-3 mb-3" role="status">
+      <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+      <span>Updating {{ b.index }} of {{ b.total }}. If Windows asks for permission, choose Yes.</span>
+      <button type="button" class="btn btn-quiet btn-sm ms-auto" (click)="stop()">Stop after this one</button>
+    </div>
+  }
+
+  @if (outcomes(); as list) {
+    <section class="panel panel-body mb-3">
+      <h2 class="panel-title">Last update run</h2>
+      <ul class="list-unstyled mb-0">
+        @for (o of list; track o.id) {
+          <li><strong>{{ o.name }}</strong>: {{ o.ok ? 'updated' : 'not updated' }}@if (o.message) { <span class="text-body-secondary"> {{ o.message }}</span> }</li>
+        }
+      </ul>
+    </section>
+  }
+
   <div class="panel">
     @if (loading() && !items().length) {
       <div class="empty"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Asking winget what is out of date...</div>
@@ -30,6 +49,7 @@
       <table class="table data-table" [class.refreshing]="loading()">
         <thead>
           <tr>
+            <th scope="col"><span class="visually-hidden">Choose</span></th>
             <th scope="col">App</th>
             <th scope="col">Installed</th>
             <th scope="col">Available</th>
@@ -39,7 +59,12 @@
         </thead>
         <tbody>
           @for (u of items(); track u.id) {
-            <tr>
+            <tr [class.selected]="picked().has(u.id)">
+              <td class="tick">
+                @if (canUpdate(u)) {
+                  <input class="form-check-input mt-0" type="checkbox" [attr.aria-label]="'Choose ' + u.name" [checked]="picked().has(u.id)" [disabled]="busy()" (change)="tick(u)" />
+                }
+              </td>
               <td>
                 <div class="name-cell">
                   <span class="avatar" aria-hidden="true" [style.--h]="hue(u.name)">{{ u.name.charAt(0).toUpperCase() }}</span>
@@ -60,7 +85,7 @@
               <td>{{ u.source ?? '-' }}</td>
               <td class="actions">
                 @if (canUpdate(u)) {
-                  <button type="button" class="btn btn-quiet btn-sm" [attr.aria-label]="'Update ' + u.name" [disabled]="updatingId() !== null || loading()" (click)="update(u)">Update</button>
+                  <button type="button" class="btn btn-quiet btn-sm" [attr.aria-label]="'Update ' + u.name" [disabled]="busy() || loading()" (click)="update(u)">Update</button>
                 }
               </td>
             </tr>
@@ -70,13 +95,28 @@
     }
   </div>
 
+  @if (updatable().length) {
+    <div class="panel panel-body d-flex align-items-center gap-3 mt-3">
+      <span class="text-body-secondary">
+        @if (chosen().length) {
+          {{ chosen().length }} of {{ updatable().length }} ticked
+        } @else {
+          Tick the updates you want, or select all of them.
+        }
+      </span>
+      <button type="button" class="btn btn-quiet btn-sm" [disabled]="busy() || chosen().length === updatable().length" (click)="selectAll()">Select all</button>
+      <button type="button" class="btn btn-quiet btn-sm" [disabled]="busy() || !chosen().length" (click)="clearTicks()">Clear</button>
+      <button type="button" class="btn btn-primary ms-auto" [disabled]="!chosen().length || busy() || loading()" (click)="updateSelected()">Update selected</button>
+    </div>
+  }
+
   @if (checkedAt(); as t) {
     <p class="text-body-secondary mt-3 mb-0">
       {{ items().length }} update{{ items().length === 1 ? '' : 's' }} found, checked at {{ timeOf(t) }}.
       @if (heldBack()) {
         {{ heldBack() }} held back by winget.
       }
-      An "Update all" button is not offered: each update changes a program, so it is one at a time.
+      Nothing is ticked until you tick it. Each update changes a program, so close the apps first. Updates that winget holds back, that come from other sources, or that are winget itself are not offered here.
     </p>
   }
 </div>

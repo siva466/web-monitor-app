@@ -379,6 +379,75 @@ export interface CacheClearResult {
   failed: number;
 }
 
+export interface CatalogApp {
+  id: string;
+  name: string;
+  note: string;
+  state: 'installed' | 'update' | 'missing';
+  version: string | null;
+  available: string | null;
+}
+
+export interface CatalogList {
+  categories: { name: string; apps: CatalogApp[] }[];
+  checkedAt: number;
+}
+
+export interface AppListSaved {
+  saved: boolean;
+  name?: string;
+  count?: number;
+}
+
+export interface AppListRead {
+  canceled: boolean;
+  read?: number;
+  known?: string[];
+  unknown?: number;
+}
+
+export interface BatteryNow {
+  present: boolean;
+  count?: number;
+  percent?: number | null;
+  state?: 'charging' | 'discharging' | 'full' | 'plugged' | 'unknown';
+  acOnline?: boolean | null;
+  critical?: boolean;
+  minutesLeft?: number | null;
+  estimating?: boolean;
+  relative?: boolean;
+  powerW?: number | null;
+  voltageV?: number | null;
+  remainingMwh?: number | null;
+  fullMwh?: number | null;
+  designMwh?: number | null;
+  cycles?: number | null;
+  health?: number | null;
+}
+
+export interface BatteryHistoryRow {
+  from: string;
+  to: string;
+  designMwh: number | null;
+  fullMwh: number | null;
+  health: number | null;
+  cycles: number | null;
+  activeBatteryMin: number | null;
+  standbyBatteryMin: number | null;
+  activeAcMin: number | null;
+  standbyAcMin: number | null;
+}
+
+export interface BatteryReport {
+  present: boolean;
+  count?: number;
+  scanTime?: string | null;
+  relative?: boolean;
+  battery?: { manufacturer: string | null; chemistry: string | null; designMwh: number | null; fullMwh: number | null; cycles: number | null; health: number | null };
+  runtime?: { fullActiveMin: number | null; fullStandbyMin: number | null; designActiveMin: number | null; designStandbyMin: number | null } | null;
+  history?: BatteryHistoryRow[];
+}
+
 export interface EndResult {
   pid: number;
   ok: boolean;
@@ -404,6 +473,10 @@ declare global {
       installApp(id: string): Promise<InstallResult>;
       upgradeApp(id: string): Promise<UpgradeResult>;
       uninstallApp(key: string): Promise<UninstallResult>;
+      listCatalog(): Promise<CatalogList>;
+      installCatalogApp(id: string): Promise<InstallResult>;
+      exportAppList(ids: string[]): Promise<AppListSaved>;
+      importAppList(): Promise<AppListRead>;
       scanLeftovers(key: string): Promise<LeftoverScan>;
       scanLeftoversByName(name: string, publisher: string | null): Promise<LeftoverScan>;
       removeLeftovers(ids: string[]): Promise<RemoveResult>;
@@ -418,6 +491,8 @@ declare global {
       restoreBackupFolder(id: string, index: number): Promise<RestoreResult>;
       deleteBackup(id: string): Promise<{ deleted: boolean }>;
       openBackup(id: string): Promise<string>;
+      getBattery(): Promise<BatteryNow>;
+      getBatteryReport(): Promise<BatteryReport>;
       getDiskDrives(): Promise<DiskDrive[]>;
       getDiskStarts(): Promise<DiskStart[]>;
       scanDiskStart(key: string): Promise<DiskListing>;

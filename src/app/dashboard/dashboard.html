@@ -11,8 +11,8 @@
   }
 
   <div class="row g-3 mb-3">
-    <div class="col-md-4">
-      <div class="panel stat">
+    <div class="col-md">
+      <div class="panel stat h-100">
         <div class="stat-label"><app-icon name="cpu" />CPU</div>
         <div class="stat-value">{{ percentText(cpuNow()) }}</div>
         <div class="stat-sub text-body-secondary">
@@ -22,8 +22,8 @@
         </div>
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="panel stat">
+    <div class="col-md">
+      <div class="panel stat h-100">
         <div class="stat-label"><app-icon name="memory" />Memory</div>
         <div class="stat-value">{{ percentText(ramNow()) }}</div>
         <div class="stat-sub text-body-secondary">
@@ -33,13 +33,24 @@
         </div>
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="panel stat">
+    <div class="col-md">
+      <div class="panel stat h-100">
         <div class="stat-label"><app-icon name="clock" />Uptime</div>
         <div class="stat-value">{{ live() ? uptimeText(live()!.uptime) : '-' }}</div>
         <div class="stat-sub text-body-secondary">Since the last restart</div>
       </div>
     </div>
+    @if (battery(); as b) {
+      @if (b.present) {
+        <div class="col-md">
+          <div class="panel stat h-100">
+            <div class="stat-label"><app-icon name="battery" />Battery</div>
+            <div class="stat-value">{{ b.percent != null ? b.percent + '%' : '-' }}</div>
+            <div class="stat-sub text-body-secondary">{{ batteryLine(b) }}</div>
+          </div>
+        </div>
+      }
+    }
   </div>
 
   <div class="row g-3 mb-3">

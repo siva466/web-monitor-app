@@ -1,12 +1,13 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { Live, Overview } from '../api';
+import { BatteryNow, Live, Overview } from '../api';
 import { errorText, formatBytes, formatUptime } from '../format';
 import { Icon } from '../icon';
 import { SystemService } from '../system.service';
 
 const MAX_SAMPLES = 60;
 const POLL_MS = 2000;
+const BATTERY_POLL_MS = 30000;
 const W = 600;
 const H = 180;
 const LEFT = 36;
@@ -32,6 +33,7 @@ interface Sample {
 export class Dashboard implements OnInit, OnDestroy {
   private readonly sys = inject(SystemService);
   private timer?: ReturnType<typeof setTimeout>;
+  private batteryTimer?: ReturnType<typeof setTimeout>;
   private stopped = false;
 
   protected readonly fmt = formatBytes;
@@ -44,6 +46,7 @@ export class Dashboard implements OnInit, OnDestroy {
   protected readonly history = signal<Sample[]>([]);
   protected readonly error = signal<string | null>(null);
   protected readonly hoverT = signal<number | null>(null);
+  protected readonly battery = signal<BatteryNow | null>(null);
 
   protected readonly cpuNow = computed(() => this.history().at(-1)?.cpu);
   protected readonly ramNow = computed(() => this.history().at(-1)?.ram);
@@ -89,11 +92,30 @@ export class Dashboard implements OnInit, OnDestroy {
   ngOnInit() {
     this.sys.overview().then((o) => this.overview.set(o), (e) => this.error.set(errorText(e)));
     this.poll();
+    this.pollBattery();
   }
 
   ngOnDestroy() {
     this.stopped = true;
     clearTimeout(this.timer);
+    clearTimeout(this.batteryTimer);
+  }
+
+  // Its own, slower poll (each read starts PowerShell). A PC without a battery is asked once, then never again.
+  private async pollBattery() {
+    try {
+      const b = await this.sys.battery();
+      this.battery.set(b);
+      if (!b.present) return;
+    } catch {
+      // the card simply stays as it was; the next read tries again
+    }
+    if (!this.stopped) this.batteryTimer = setTimeout(() => this.pollBattery(), BATTERY_POLL_MS);
+  }
+
+  protected batteryLine(b: BatteryNow) {
+    const state = { charging: 'Charging', discharging: 'On battery', full: 'Plugged in, full', plugged: 'Plugged in, not charging', unknown: 'State not reported' }[b.state ?? 'unknown'];
+    return b.health != null ? `${state} · Health ${Math.round(b.health)}%` : state;
   }
 
   private async poll() {

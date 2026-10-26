@@ -22,6 +22,6 @@ describe('App', () => {
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.brand')?.textContent).toContain('System Monitor');
-    expect(compiled.querySelectorAll('nav a').length).toBe(11);
+    expect(compiled.querySelectorAll('nav a').length).toBe(13);
   });
 });

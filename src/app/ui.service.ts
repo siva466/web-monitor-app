@@ -27,7 +27,8 @@ export class UiService {
   toast(text: string, kind: Toast['kind'] = 'info') {
     const id = ++this.nextId;
     this.toasts.update((t) => [...t, { id, text, kind }]);
-    setTimeout(() => this.dismiss(id), kind === 'error' ? 8000 : 4000);
+    // long messages (for example why an installer was blocked) stay long enough to read: about 60 ms per character, at most 20 s
+    setTimeout(() => this.dismiss(id), Math.min(20000, Math.max(kind === 'error' ? 8000 : 4000, text.length * 60)));
   }
 
   dismiss(id: number) {

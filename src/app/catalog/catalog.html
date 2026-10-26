@@ -1,0 +1,87 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <h1>App catalog</h1>
+      <p class="text-body-secondary">A short list of free apps people commonly install. Tick the ones you want, review the list, and install them one after another. Save a list to set up another PC the same way.</p>
+    </div>
+    <div class="page-actions">
+      <button type="button" class="btn btn-quiet" [disabled]="running() !== null" (click)="importList()">Open list...</button>
+      <button type="button" class="btn btn-quiet" [disabled]="!chosen().length || running() !== null" (click)="exportList()">Save list...</button>
+      <button type="button" class="icon-btn" title="Check again" aria-label="Check again" [disabled]="loading() || running() !== null" (click)="load()"><app-icon name="refresh" /></button>
+    </div>
+  </header>
+
+  @if (error(); as e) {
+    <div class="alert alert-danger" role="alert">{{ e }}</div>
+  }
+
+  <label class="search mb-3 d-block">
+    <app-icon name="search" />
+    <input class="form-control w-100" type="search" placeholder="Filter the list, for example browser" aria-label="Filter the catalog" [value]="filter()" (input)="onFilter($event)" />
+  </label>
+
+  @if (running(); as r) {
+    <div class="panel panel-body d-flex align-items-center gap-3 mb-3" role="status">
+      <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+      <span>Installing {{ r.index }} of {{ r.total }}: <strong>{{ r.name }}</strong>. If Windows asks for permission, choose Yes.</span>
+      <button type="button" class="btn btn-quiet btn-sm ms-auto" (click)="stop()">Stop after this one</button>
+    </div>
+  }
+
+  @if (outcomes(); as list) {
+    <section class="panel panel-body mb-3">
+      <h2 class="panel-title">Last install</h2>
+      <ul class="outcomes">
+        @for (o of list; track o.id) {
+          <li>
+            <app-icon [name]="o.ok ? 'check' : 'alert'" />
+            <span><strong>{{ o.name }}</strong>: {{ o.ok ? 'installed' : 'not installed' }}@if (o.message) { <span class="text-body-secondary"> {{ o.message }}</span> }</span>
+          </li>
+        }
+      </ul>
+      @if (failedAny()) {
+        <p class="text-body-secondary mb-0 mt-2">If Windows blocked an installer, the Blocked page shows which file and why.</p>
+      }
+    </section>
+  }
+
+  @if (loading() && !data()) {
+    <div class="panel"><div class="empty"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Asking winget what is installed...</div></div>
+  } @else if (data()) {
+    @for (c of view(); track c.name) {
+      <h2 class="panel-title mt-3">{{ c.name }}</h2>
+      <section class="panel mb-3" [class.refreshing]="loading()">
+        @for (a of c.apps; track a.id) {
+          <div class="app-row">
+            <input class="form-check-input mt-0" type="checkbox" [id]="'app-' + a.id" [checked]="picked().has(a.id)" [disabled]="running() !== null" (change)="tick(a)" />
+            <label class="name-cell flex-grow-1" [for]="'app-' + a.id">
+              <span class="avatar" aria-hidden="true" [style.--h]="hue(a.name)">{{ a.name.charAt(0).toUpperCase() }}</span>
+              <span class="min-w-0">
+                <strong>{{ a.name }}</strong>
+                <span class="sub d-block">{{ a.note }}</span>
+              </span>
+            </label>
+            <span class="sub text-nowrap d-none d-md-inline">{{ a.id }}</span>
+            @if (stateLabel(a); as s) {
+              <span class="chip chip-ok text-nowrap" [title]="a.version ? 'Version ' + a.version + (a.available ? ', ' + a.available + ' available' : '') : ''">{{ s }}</span>
+            }
+          </div>
+        }
+      </section>
+    } @empty {
+      <div class="panel"><div class="empty">Nothing in the catalog matches that.</div></div>
+    }
+
+    <div class="panel panel-body d-flex align-items-center gap-3">
+      <span class="text-body-secondary">
+        @if (chosen().length) {
+          {{ chosen().length }} app{{ chosen().length === 1 ? '' : 's' }} ticked, {{ toInstall().length }} to install
+        } @else {
+          Tick the apps you want. {{ counts().installed }} of {{ counts().total }} are already installed.
+        }
+      </span>
+      <button type="button" class="btn btn-primary ms-auto" [disabled]="!toInstall().length || running() !== null || loading()" (click)="install()">Install selected</button>
+    </div>
+    <p class="text-body-secondary mt-3 mb-0">The list is fixed and checked here: only these apps can be installed from this page (use Find apps for anything else). Installed apps can be ticked too, to save a list of what you have. "Installed" means winget recognises it, so an app installed some other way may show as not installed; installing it then says it is already there. Installs come from winget's community catalogue and need an internet connection. Portable apps (such as Process Explorer) get no Start menu entry. If Windows blocks an installer (Smart App Control), the Blocked page shows why.</p>
+  }
+</div>

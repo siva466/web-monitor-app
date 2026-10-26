@@ -4,6 +4,7 @@ const path = require('path');
 const { promisify } = require('util');
 const execFile = promisify(require('child_process').execFile);
 const { withLock } = require('./lock');
+const { explainFailure } = require('./blocked');
 
 // Lists updates, searches, shows details, and installs one package on request (installApp).
 // winget has no JSON output for these, so its text tables are read by column position.
@@ -145,6 +146,17 @@ async function run(args, timeout) {
 
 const listAppUpdates = async () => parseUpgrades(await run(['upgrade'], 120000));
 
+// `winget list`: what winget recognises as installed, by package id. The 4th column is "Available" only when some app has an update;
+// otherwise it is "Source", which is told apart the same way parseSearch does.
+function parseInstalled(text) {
+  const [rows = []] = parseTables(text);
+  const col = rows.map((r) => r[3]).filter(Boolean);
+  const fourthIsSource = col.every((v) => /^(winget|msstore|winget-font)$/.test(v));
+  return rows.filter((r) => r[0] && r[1]).map((r) => ({ name: r[0], id: r[1], version: r[2] || null, available: fourthIsSource ? null : r[3] || null }));
+}
+
+const listInstalled = async () => parseInstalled(await run(['list'], 120000));
+
 async function searchApps(query) {
   const q = String(query ?? '').trim();
   if (!QUERY.test(q)) throw new Error('Type a few letters or digits of the app name.');
@@ -179,11 +191,18 @@ function whyNotUpgrade(row) {
 // step ("Error 1730: you must be an Administrator", seen live with PuTTY). So the whole upgrade runs elevated, behind one
 // Windows permission prompt. The id and the output file name are checked here because they end up in a command line.
 const SAFE_OUT = /^[A-Za-z]:\\[A-Za-z0-9_ .()~\\-]+$/; // "~" appears in short profile names such as C:\Users\SWAPNI~1
-function elevatedUpgradeCommand(id, outFile) {
+function elevatedCommand(verb, id, outFile) {
   if (!PACKAGE_ID.test(String(id))) throw new Error('That is not a valid package id.');
   if (!SAFE_OUT.test(outFile) || outFile.includes('..')) throw new Error('The temporary folder has characters that are not safe to use here.');
-  return `/c winget.exe upgrade --id ${id} --exact --source winget --silent --disable-interactivity > "${outFile}" 2>&1`;
+  return `/c winget.exe ${verb} --id ${id} --exact --source winget --silent --disable-interactivity > "${outFile}" 2>&1`;
 }
+const elevatedUpgradeCommand = (id, outFile) => elevatedCommand('upgrade', id, outFile);
+const elevatedInstallCommand = (id, outFile) => elevatedCommand('install', id, outFile);
+
+// Windows Installer packages (winget's "wix" and "msi") are installed for all users from a silent, non-elevated run only if Windows lets the
+// installer service do it, which it does not (see the upgrade note above), so they run behind one permission prompt like upgrades. Other
+// installer types (exe, Inno, NSIS, Burn, MSIX, portable) ask for rights themselves or need none.
+const needsElevatedInstall = (installerType) => /^(wix|msi)$/i.test(String(installerType ?? ''));
 
 const ELEVATED_SCRIPT = String.raw`
 $ErrorActionPreference = 'Stop'
@@ -206,6 +225,31 @@ try {
 }
 `;
 
+// Runs one winget command line behind ONE Windows permission prompt and reports { declined, exitCode, output, error }. `build` makes the command
+// from the name of the temporary output file; only the id and that file name (both checked there) ever reach the command line.
+async function runElevated(build, what) {
+  const outFile = path.join(os.tmpdir(), `webase-winget-${Date.now()}.txt`);
+  const cmd = build(outFile);
+  let run = '';
+  try {
+    run = (await execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ELEVATED_SCRIPT], { env: { ...process.env, WB_CMD: cmd }, timeout: 20 * 60 * 1000, windowsHide: true })).stdout;
+  } catch (e) {
+    run = String(e.stdout || '');
+    if (!/CODE=|EXIT=/.test(run)) throw new Error(`Could not start the ${what}. ${String(e.stderr || e.message).split('\n')[0]}`);
+  }
+  let output = '';
+  try {
+    output = fs.readFileSync(outFile, 'utf8');
+    fs.unlinkSync(outFile);
+  } catch {
+    // winget wrote nothing: the prompt was declined, or it never started
+  }
+  if (/CODE=1223\b/.test(run)) return { declined: true, exitCode: null, output };
+  const exitCode = Number(/EXIT=(-?\d+)/.exec(run)?.[1] ?? NaN);
+  if (Number.isNaN(exitCode)) return { declined: false, exitCode: null, output, error: (/ERROR=(.*)/.exec(run)?.[1] || '').trim() };
+  return { declined: false, exitCode, output };
+}
+
 // `winget list --scope machine` succeeds (exit 0) only for an app installed for all users; only those need elevation.
 const needsElevation = (machineListExitCode) => machineListExitCode === 0;
 
@@ -213,6 +257,7 @@ const needsElevation = (machineListExitCode) => machineListExitCode === 0;
 async function upgradeApp(id) {
   if (!PACKAGE_ID.test(String(id))) throw new Error('That is not a valid package id.');
   return withLock(async () => {
+    const startedAt = Date.now();
     const row = (await listAppUpdates()).find((u) => u.id === id);
     const why = whyNotUpgrade(row);
     if (why) throw new Error(why);
@@ -224,24 +269,10 @@ async function upgradeApp(id) {
 
     if (needsElevation((await exec(['list', '--id', id, '--exact', '--scope', 'machine'], 60000)).code)) {
       // An all-users app: the whole upgrade runs behind one Windows permission prompt (see above).
-      const outFile = path.join(os.tmpdir(), `webase-upgrade-${Date.now()}.txt`);
-      const cmd = elevatedUpgradeCommand(id, outFile);
-      let run = '';
-      try {
-        run = (await execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ELEVATED_SCRIPT], { env: { ...process.env, WB_CMD: cmd }, timeout: 20 * 60 * 1000, windowsHide: true })).stdout;
-      } catch (e) {
-        run = String(e.stdout || '');
-        if (!/CODE=|EXIT=/.test(run)) throw new Error(`Could not start the update. ${String(e.stderr || e.message).split('\n')[0]}`);
-      }
-      try {
-        output = fs.readFileSync(outFile, 'utf8');
-        fs.unlinkSync(outFile);
-      } catch {
-        // winget wrote nothing: the prompt was declined, or it never started
-      }
-      if (/CODE=1223\b/.test(run)) return stopped('The Windows permission prompt was declined, so nothing changed.');
-      exitCode = Number(/EXIT=(-?\d+)/.exec(run)?.[1] ?? NaN);
-      if (Number.isNaN(exitCode)) return stopped((/ERROR=(.*)/.exec(run)?.[1] || 'The update could not be started.').trim());
+      const r = await runElevated((outFile) => elevatedUpgradeCommand(id, outFile), 'update');
+      if (r.declined) return stopped('The Windows permission prompt was declined, so nothing changed.');
+      if (r.exitCode === null) return stopped(r.error || 'The update could not be started.');
+      ({ exitCode, output } = r);
     } else {
       // A per-user app (including Store-style packages): no administrator rights are needed, and some installers refuse to
       // run elevated, so it runs as you.
@@ -250,7 +281,7 @@ async function upgradeApp(id) {
 
     const now = versionFromList((await exec(['list', '--id', id, '--exact'], 60000)).stdout, id);
     const updated = now !== null && now !== row.version;
-    return { ...base, to: now, updated, exitCode, message: updated ? null : installMessage(output, exitCode) };
+    return { ...base, to: now, updated, exitCode, message: updated ? null : await explainFailure(startedAt, installMessage(output, exitCode)) };
   });
 }
 
@@ -276,10 +307,20 @@ async function installApp(id) {
   return withLock(async () => {
     const d = await appDetails(id); // checks the id is valid and really exists in the catalogue
     if (await isInstalled(id)) throw new Error(`${d.name} is already installed.`);
-    const { code, stdout } = await exec(['install', '--id', id, '--exact', '--source', 'winget', '--silent'], 10 * 60 * 1000);
+    const startedAt = Date.now();
+    let code;
+    let stdout;
+    if (needsElevatedInstall(d.installerType)) {
+      const r = await runElevated((outFile) => elevatedInstallCommand(id, outFile), 'install');
+      if (r.declined) return { id, name: d.name, installed: false, exitCode: null, message: 'The Windows permission prompt was declined, so nothing was installed.' };
+      if (r.exitCode === null) return { id, name: d.name, installed: false, exitCode: null, message: r.error || 'The install could not be started.' };
+      ({ exitCode: code, output: stdout } = r);
+    } else {
+      ({ code, stdout } = await exec(['install', '--id', id, '--exact', '--source', 'winget', '--silent'], 10 * 60 * 1000));
+    }
     const installed = await isInstalled(id);
-    return { id, name: d.name, installed, exitCode: code, message: installed ? null : installMessage(stdout, code) };
+    return { id, name: d.name, installed, exitCode: code, message: installed ? null : await explainFailure(startedAt, installMessage(stdout, code)) };
   });
 }
 
-module.exports = { installApp, upgradeApp, elevatedUpgradeCommand, needsElevation, whyNotUpgrade, versionFromList, installMessage, listAppUpdates, searchApps, appDetails, parseUpgrades, parseSearch, parseDetails, parseTables, licenseHint, QUERY, PACKAGE_ID };
+module.exports = { installApp, upgradeApp, elevatedUpgradeCommand, elevatedInstallCommand, needsElevatedInstall, needsElevation, whyNotUpgrade, versionFromList, installMessage, listAppUpdates, listInstalled, parseInstalled, searchApps, appDetails, parseUpgrades, parseSearch, parseDetails, parseTables, licenseHint, QUERY, PACKAGE_ID };

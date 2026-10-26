@@ -1,4 +1,17 @@
-import { compareValues, errorText, formatAge, formatBytes, formatUptime } from './format';
+import { compareValues, errorText, formatAge, formatBytes, formatMinutes, formatUptime } from './format';
+
+describe('formatMinutes', () => {
+  it('shows minutes, hours and minutes, or days and hours; missing values as a dash', () => {
+    expect(formatMinutes(0.2)).toBe('0 min');
+    expect(formatMinutes(45)).toBe('45 min');
+    expect(formatMinutes(97.5)).toBe('1 h 38 min');
+    expect(formatMinutes(120)).toBe('2 h 0 min');
+    expect(formatMinutes(3113.3)).toBe('2 d 3 h');
+    expect(formatMinutes(null)).toBe('-');
+    expect(formatMinutes(undefined)).toBe('-');
+    expect(formatMinutes(NaN)).toBe('-');
+  });
+});
 
 describe('formatAge', () => {
   it('reads as days, months and years', () => {

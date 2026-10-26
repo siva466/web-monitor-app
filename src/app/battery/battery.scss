@@ -1,0 +1,38 @@
+.progress {
+  display: block;
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 99px;
+}
+
+.progress-bar {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--accent);
+}
+
+.tone-good,
+.tone-bg-good {
+  color: var(--ok);
+}
+
+.tone-fair {
+  color: #b7791f;
+}
+
+.tone-poor {
+  color: var(--danger);
+}
+
+.progress-bar.tone-bg-good {
+  background: var(--ok);
+}
+
+.progress-bar.tone-bg-fair {
+  background: #d69e2e;
+}
+
+.progress-bar.tone-bg-poor {
+  background: var(--danger);
+}

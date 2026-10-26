@@ -64,6 +64,22 @@ export class SystemService {
     return (await this.api()).uninstallApp(key);
   }
 
+  async catalog() {
+    return (await this.api()).listCatalog();
+  }
+
+  async installCatalogApp(id: string) {
+    return (await this.api()).installCatalogApp(id);
+  }
+
+  async exportAppList(ids: string[]) {
+    return (await this.api()).exportAppList(ids);
+  }
+
+  async importAppList() {
+    return (await this.api()).importAppList();
+  }
+
   async scanLeftovers(key: string) {
     return (await this.api()).scanLeftovers(key);
   }
@@ -114,6 +130,14 @@ export class SystemService {
 
   async openBackup(id: string) {
     return (await this.api()).openBackup(id);
+  }
+
+  async battery() {
+    return (await this.api()).getBattery();
+  }
+
+  async batteryReport() {
+    return (await this.api()).getBatteryReport();
   }
 
   async diskDrives() {

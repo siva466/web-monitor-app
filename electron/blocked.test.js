@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const { listBlocked, parseEvent, buildRows, reasonOf, fromDevicePath, levelName, sacState, FETCH_SCRIPT, LOOKUP_SCRIPT, MAX_LOOKUPS } = require('./blocked');
+const { listBlocked, recentBlocks, blockedMessage, explainFailure, parseEvent, buildRows, reasonOf, fromDevicePath, levelName, sacState, FETCH_SCRIPT, RECENT_SCRIPT, LOOKUP_SCRIPT, MAX_LOOKUPS } = require('./blocked');
 const { execFileSync } = require('child_process');
 
 // Real event records saved from this PC (computer name replaced): the NVIDIA overlay DLL refused by a Microsoft-only program (3033, with
@@ -173,4 +173,68 @@ test('the real lookup script handles one file and several, an existing system fi
   assert.deepEqual([one[0].exists, one[0].status, /microsoft/i.test(one[0].signer)], [true, 'Valid', true]);
   const two = run([notepad, 'C:\\definitely-missing\\nothing.dll']);
   assert.deepEqual(two.map((x) => x.exists), [true, false]);
+});
+
+// ---- explaining an install or update that failed while Windows blocked a file ----
+
+// The real events from this PC (26 October, 22:57): the Node.js installer's helper file blocked while msiexec loaded it. The 3089 companion
+// says the file carries no signature at all (TotalSignatureCount 0, publisher "Unknown").
+const MSI77 = fx('ci-3077-msiefa0.xml');
+const MSI33 = fx('ci-3033-msiefa0.xml');
+const MSI89 = fx('ci-3089-msiefa0.xml');
+
+test('the real MSIEFA0.tmp events read as one policy block of an unsigned installer helper file loaded by msiexec.exe', async () => {
+  const rows = await recentBlocks(0, { recent: async () => ({ volumes: VOL, events: [MSI77, MSI33, MSI89] }) });
+  assert.equal(rows.length, 1, 'the 3033 and the 3077 for the same file and program are one block');
+  const r = rows[0];
+  assert.deepEqual([r.file, r.fileName, r.processName, r.kind, r.policy], ['C:\\Windows\\Installer\\MSIEFA0.tmp', 'MSIEFA0.tmp', 'msiexec.exe', 'policy', 'VerifiedAndReputableDesktop']);
+  assert.equal(r.publisher, null, '"Unknown" is not a company');
+});
+
+test('only real blocks count: a Microsoft-only refusal (3033 alone) and an audit record are not blocks of an installer', async () => {
+  const audit = WEB77.replace('<EventID>3077</EventID>', '<EventID>3076</EventID>');
+  const rows = await recentBlocks(0, { recent: async () => ({ volumes: VOL, events: [NV33, NV89, audit] }) });
+  assert.deepEqual(rows, []);
+  assert.deepEqual(await recentBlocks(0, { recent: async () => null }), []);
+  assert.deepEqual(await recentBlocks(0, { recent: async () => ({ events: [] }) }), []);
+});
+
+test('the sentence names the file and the program, says Smart App Control for its policy, and is null when nothing was blocked', async () => {
+  assert.equal(blockedMessage([]), null);
+  assert.equal(blockedMessage(null), null);
+  const rows = await recentBlocks(0, { recent: async () => ({ volumes: VOL, events: [MSI77, MSI33, MSI89] }) });
+  const m = blockedMessage(rows);
+  assert.match(m, /^While this ran, Smart App Control blocked MSIEFA0\.tmp \(loaded by msiexec\.exe\) because Windows cannot confirm who published it\./);
+  assert.match(m, /That is probably why it stopped\./);
+  assert.match(m, /The Blocked page shows the details, and this app never changes Smart App Control\./);
+  assert.match(m, /A zip or per-user version from the publisher may not be blocked\./);
+  const other = blockedMessage([{ ...rows[0], policy: 'Contoso-Policy' }]);
+  assert.match(other, /^While this ran, Windows' app control blocked MSIEFA0\.tmp/);
+  assert.doesNotMatch(other, /Smart App Control blocked/);
+  const two = blockedMessage([rows[0], { ...rows[0], fileName: 'x.dll' }]);
+  assert.match(two, /blocked 2 files, the newest MSIEFA0\.tmp \(loaded by msiexec\.exe\)/);
+  const bare = blockedMessage([{ policy: null, fileName: null, processName: null }]);
+  assert.match(bare, /blocked a file because/);
+});
+
+test('a failed install or update says what Windows blocked while it ran; otherwise its own message stays, even if the log cannot be read', async () => {
+  const rows = await recentBlocks(0, { recent: async () => ({ volumes: VOL, events: [MSI77, MSI33, MSI89] }) });
+  let asked;
+  const blocked = await explainFailure(1_000_000, 'The installer reported a fatal error.', { recentBlocks: async (since) => { asked = since; return rows; } });
+  assert.match(blocked, /Smart App Control blocked MSIEFA0\.tmp/);
+  assert.equal(asked, 1_000_000 - 3000, 'the log is read from a moment before the attempt, in case of a clock difference');
+  assert.equal(await explainFailure(1, 'The installer reported a fatal error.', { recentBlocks: async () => [] }), 'The installer reported a fatal error.');
+  assert.equal(await explainFailure(1, 'The installer reported a fatal error.', { recentBlocks: async () => { throw new Error('log unreadable'); } }), 'The installer reported a fatal error.');
+});
+
+test('the real recent-events script returns the volumes and an events array: nothing from the future, and what the log holds for the last week parses', () => {
+  const run = (sinceMs) => JSON.parse(psOut(RECENT_SCRIPT, { WB_SINCE: String(sinceMs) }));
+  const future = run(Date.now() + 3600_000);
+  assert.match(future.volumes.C, /^\\Device\\/);
+  assert.deepEqual(future.events, []);
+  const week = run(Date.now() - 7 * 86400_000);
+  assert.ok(Array.isArray(week.events));
+  for (const x of week.events.slice(0, 20)) assert.ok(parseEvent(x), 'every returned event parses');
+  const one = run(Date.now() - 365 * 86400_000);
+  assert.ok(Array.isArray(one.events), 'a single event still comes back as an array');
 });
