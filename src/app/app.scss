@@ -64,8 +64,8 @@ nav {
     }
 
     &.active {
-      color: var(--accent-ink);
-      background: var(--accent-soft);
+      color: var(--nav-active);
+      background: var(--nav-active-bg);
     }
   }
 }

@@ -20,6 +20,8 @@
   --accent: #2f5fe0;
   --accent-ink: #2449b8;
   --accent-soft: #e6ecfd;
+  --nav-active: #d72b3d;
+  --nav-active-bg: #f8d7da;
   --danger: #c62d3d;
   --danger-soft: #fdecee;
   --ok: #1a8f3c;
@@ -39,6 +41,8 @@
   --accent: #5b8cff;
   --accent-ink: #9bb8ff;
   --accent-soft: #1b2a4f;
+  --nav-active: var(--danger);
+  --nav-active-bg: var(--danger-soft);
   --danger: #ff7a85;
   --danger-soft: #3a1c22;
   --ok: #4cc275;
