@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+npm run build
+[[ -d "dist/webase-app/browser" ]] || {
+  echo "Expected build output at dist/webase-app/browser" >&2
+  exit 1
+}
+figma make deploy --build-dir "dist/webase-app/browser"
