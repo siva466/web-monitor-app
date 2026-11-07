@@ -184,6 +184,18 @@ body {
   --bs-btn-active-border-color: var(--accent-ink);
 }
 
+.btn-secondary-action {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--bs-secondary-color);
+  --bs-btn-border-color: var(--bs-secondary-color);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--bs-body-color);
+  --bs-btn-hover-border-color: var(--bs-body-color);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--bs-body-color);
+  --bs-btn-active-border-color: var(--bs-body-color);
+}
+
 .btn-danger {
   --bs-btn-color: #fff;
   --bs-btn-bg: #c62d3d;
